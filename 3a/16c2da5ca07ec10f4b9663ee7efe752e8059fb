@@ -1,0 +1,41 @@
+native/MuesliNative/Tests/MuesliTests/CoachEngineTests.swift
+  s_d1e0e80975712b::t_f69abe898ae8de 1-43
+native/MuesliNative/Sources/MuesliNativeApp/CoachController.swift
+  s_d1e0e80975712b::t_1c8d391b884113 1-63
+native/MuesliNative/Sources/MuesliNativeApp/CoachLLMClient.swift
+  s_d1e0e80975712b::t_9a416244f915d4 1-100
+native/MuesliNative/Sources/MuesliNativeApp/CoachTranscriptStore.swift
+  s_d1e0e80975712b::t_12400b78a89ad8 1-59
+native/MuesliNative/Sources/MuesliNativeApp/CoachOverlay.swift
+  s_d1e0e80975712b::t_1031783ed0a1d8 1-82
+native/MuesliNative/Sources/MuesliNativeApp/CoachStores.swift
+  s_d1e0e80975712b::t_65df56ddab53d8 1-94
+native/MuesliNative/Sources/MuesliNativeApp/CoachConfig.swift
+  s_d1e0e80975712b::t_88fa68d70296fe 1-113
+native/MuesliNative/Sources/MuesliNativeApp/CoachEngine.swift
+  s_d1e0e80975712b::t_76a66d6c81d5b8 1-212
+native/MuesliNative/Sources/MuesliNativeApp/MuesliController.swift
+  s_d1e0e80975712b::t_b8eaf397b0030d 4574-4575
+  s_d1e0e80975712b::t_c02225902c2919 5279
+  s_d1e0e80975712b::t_8bb5b6c73f53be 5582-5583
+  s_d1e0e80975712b::t_3fcd78ffcd0e54 5301
+  s_d1e0e80975712b::t_d1fcca38f01585 5824-5825
+  s_d1e0e80975712b::t_82257010eeb641 329
+  s_d1e0e80975712b::t_8ab73940388cd1 5349-5353
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "3a16c2da5ca07ec10f4b9663ee7efe752e8059fb",
+  "prompts": {},
+  "sessions": {
+    "s_d1e0e80975712b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4629b1c6-e36f-4a12-ada8-9ddeeda26f5a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
