@@ -33,7 +33,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         build()
     }
 
-    func setStatus(_ text: String) {}
+    func setStatus(_ text: String) {
+        // Surface the current meeting / state as the single icon's hover tooltip,
+        // so the menu bar stays icon-only. "Idle" falls back to the app name.
+        let idle = text.isEmpty || text == "Idle"
+        statusItem.button?.toolTip = idle ? AppIdentity.displayName : text
+    }
 
     func refresh() {
         rebuildMenu()
