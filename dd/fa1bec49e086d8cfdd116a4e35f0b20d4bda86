@@ -1,0 +1,38 @@
+native/MuesliNative/Sources/MuesliNativeApp/ForkMeetingContextEnricher.swift
+  s_d1e0e80975712b::t_2f7342b6e62fcb 1-65
+native/MuesliNative/Sources/MuesliNativeApp/MeetingSession.swift
+  s_d1e0e80975712b::t_0f1a060ada20cb 726-730,740
+fork-scripts/muesli-to-vault.sh
+  s_d1e0e80975712b::t_9d5324298a9c11 1-33
+native/MuesliNative/Sources/MuesliNativeApp/StatusBarController.swift
+  s_d1e0e80975712b::t_143022dfe11d2c 174-182
+  s_26c53893106f76::t_472a64c9144975 205-206
+fork-scripts/muesli-to-vault-worker.py
+  s_d1e0e80975712b::t_328604b268209f 1-163
+fork-scripts/test-muesli-to-vault.sh
+  s_d1e0e80975712b::t_06b0dfdb8c5c3e 1-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ddfa1bec49e086d8cfdd116a4e35f0b20d4bda86",
+  "prompts": {},
+  "sessions": {
+    "s_26c53893106f76": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8753279-37ba-404b-b54c-5d1d507c08b7",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    },
+    "s_d1e0e80975712b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4629b1c6-e36f-4a12-ada8-9ddeeda26f5a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
