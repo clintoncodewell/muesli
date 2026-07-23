@@ -326,6 +326,7 @@ final class MuesliController: NSObject {
     private(set) var selectedMeetingSummaryBackend: MeetingSummaryBackendOption
     private(set) var selectedPostProcessorBackend: TranscriptCleanupBackendOption
     private var activeMeetingSession: MeetingSession?
+    private var coachController: CoachController?   // fork: Cue live coach (opt-in, off by default)
     private weak var preparingMeetingSession: MeetingSession?
     private var activeMeetingID: Int64?
     private var liveMeetingTranscriptGeneration: UUID?
@@ -4570,6 +4571,8 @@ final class MuesliController: NSObject {
     private func discardMeetingStateForTermination() {
         activeMeetingSession?.discard()
         activeMeetingSession = nil
+        coachController?.end()
+        coachController = nil
         preparingMeetingSession?.discard()
         preparingMeetingSession = nil
         clearLiveMeetingTranscript()
@@ -5273,6 +5276,7 @@ final class MuesliController: NSObject {
                         // by segment timestamps, so the durable fallback stays temporally ordered.
                         let lines = entries.map { "[\($0.timestampLabel)] \($0.speaker): \($0.text)" }
                         self.appState.liveMeetingTranscript += lines.joined(separator: "\n") + "\n"
+                        self.coachController?.ingestFinal(speaker: speaker, text: entries.map { $0.text }.joined(separator: " "))
                         self.indicator.updateMeetingTranscript(
                             transcript: self.appState.liveMeetingTranscript,
                             partialYou: self.appState.liveMeetingPartialYou,
@@ -5294,6 +5298,7 @@ final class MuesliController: NSObject {
                             guard self.appState.liveMeetingPartialOthers != tail else { return }
                             self.appState.liveMeetingPartialOthers = tail
                         }
+                        self.coachController?.ingestPartial(speaker: speaker, tail: tail)
                         self.indicator.updateMeetingTranscript(
                             transcript: self.appState.liveMeetingTranscript,
                             partialYou: self.appState.liveMeetingPartialYou,
@@ -5341,6 +5346,11 @@ final class MuesliController: NSObject {
                 activeMeetingSession = meetingSession
                 activeMeetingID = meetingID
                 activeMeetingAutoStop.markRecordingStarted(now: Date())
+                if CoachController.isEnabled() {
+                    let coach = CoachController()
+                    coach.begin()
+                    coachController = coach
+                }
                 meetingMonitor.suppressWhileActive()
                 meetingMonitor.refreshState()
                 statusBarController?.setStatus("Meeting: \(title)")
@@ -5569,6 +5579,8 @@ final class MuesliController: NSObject {
         }
         sessionToDiscard.discard()
         disarmMeetingAutoStop()
+        coachController?.end()
+        coachController = nil
         self.activeMeetingSession = nil
         indicator.setMeetingRecording(false, config: config)
         if let meetingID = activeMeetingID {
@@ -5809,6 +5821,8 @@ final class MuesliController: NSObject {
 
     func stopMeetingRecording() {
         meetingRecordingHotkeyMonitor.cancelToggleMode()
+        coachController?.end()
+        coachController = nil
         guard !isStoppingMeetingRecording else { return }
         guard let sessionToStop = activeMeetingSession else {
             // Fallback recovery: reset indicator if session is nil
