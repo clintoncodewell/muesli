@@ -723,6 +723,11 @@ final class MeetingSession {
         fputs("[meeting] visual context drained chars=\(visualContext.count) includedInPrompt=\(!visualContext.isEmpty) useOCR=\(config.useCoreAudioTap)\n", stderr)
         onProgress?(.summarizingNotes)
         let manualNotes = await manualNotesProvider?()
+        // Fork: fold calendar attendees/agenda (opt-in) into the existing context channel.
+        let calendarContext = ForkMeetingContextEnricher.calendarContext(forEventID: calendarEventID)
+        let combinedContext = [calendarContext, visualContext.isEmpty ? nil : visualContext]
+            .compactMap { $0 }
+            .joined(separator: "\n\n")
         let formattedNotes: String
         do {
             formattedNotes = try await MeetingSummaryClient.summarize(
@@ -732,7 +737,7 @@ final class MeetingSession {
                 template: templateSnapshot,
                 existingNotes: nil,
                 manualNotesToRetain: manualNotes,
-                visualContext: visualContext.isEmpty ? nil : visualContext,
+                visualContext: combinedContext.isEmpty ? nil : combinedContext,
                 previousMeetingNotes: previousMeetingNotes
             )
         } catch {

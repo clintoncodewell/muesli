@@ -110,14 +110,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func rebuildMenu() {
         menu.removeAllItems()
 
-        // Upcoming calendar events
-        let hidden = controller.appState.hiddenCalendarEventIDs
-        let upcomingEvents = controller.appState.upcomingCalendarEvents.filter { !$0.isAllDay && !hidden.contains($0.id) }
-        if !upcomingEvents.isEmpty {
-            addUpcomingEventsSection(upcomingEvents)
-            menu.addItem(.separator())
-        }
-
         menu.addItem(actionItem(title: "Open \(AppIdentity.displayName)", action: #selector(MuesliController.openHistoryWindow as (MuesliController) -> () -> Void)))
         if controller.isMeetingRecording() {
             let pauseTitle = controller.isMeetingRecordingPaused() ? "Resume Meeting Recording" : "Pause Meeting Recording"
@@ -179,6 +171,15 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(actionItem(title: "Settings…", action: #selector(MuesliController.openSettingsTab)))
         menu.addItem(actionItem(title: "What's New in Muesli", action: #selector(MuesliController.showWhatsNew)))
         menu.addItem(checkForUpdatesItem())
+        // Upcoming calendar events — kept at the BOTTOM so daily actions stay at the top,
+        // with Quit pinned last below them.
+        let hidden = controller.appState.hiddenCalendarEventIDs
+        let upcomingEvents = controller.appState.upcomingCalendarEvents.filter { !$0.isAllDay && !hidden.contains($0.id) }
+        if !upcomingEvents.isEmpty {
+            menu.addItem(.separator())
+            addUpcomingEventsSection(upcomingEvents)
+        }
+
         menu.addItem(.separator())
         menu.addItem(actionItem(title: "Quit", action: #selector(MuesliController.quitApp)))
     }
@@ -201,7 +202,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             addUpcomingEventGroup(
                 title: "Starts in \(formatTimeUntil(minutesUntil))",
                 events: nextUpEvents,
-                timeFormatter: timeFormatter
+                timeFormatter: timeFormatter,
+                limit: 5
             )
         }
 
