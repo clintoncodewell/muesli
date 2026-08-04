@@ -1,0 +1,27 @@
+native/MuesliNative/Tests/MuesliTests/MeetingNeuralAecTests.swift
+  s_18f34e0bf10978::t_90e15af2338729 9-21
+native/MuesliNative/Sources/MuesliNativeApp/MeetingNeuralAec.swift
+  s_18f34e0bf10978::t_3bd952d16ee1bd 83,91-93,95-97
+  s_18f34e0bf10978::t_3be38c40be9672 209
+  s_18f34e0bf10978::t_d5a4b3cd9d788d 151-154
+  s_18f34e0bf10978::t_51669a6f6dd3a8 222-223
+native/MuesliNative/Sources/MuesliNativeApp/CoachConfig.swift
+  s_18f34e0bf10978::t_1b693781a0fe94 71-83
+  s_18f34e0bf10978::t_6d7d63d3a1f255 89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5594dff9f939453f9a0d3901eb66ed7f019544c4",
+  "prompts": {},
+  "sessions": {
+    "s_18f34e0bf10978": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1dea29d-5c40-4b71-a31f-eee5b26f83d2",
+        "model": "claude-opus-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
