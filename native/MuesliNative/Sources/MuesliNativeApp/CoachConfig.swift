@@ -68,12 +68,26 @@ struct CoachConfig {
     """
 }
 
+// Fork-owned. Non-coach fork switches that also live in fork-config.json.
+enum ForkSettings {
+    /// Neural echo cancellation on the meeting mic. On headphones there is no echo to cancel,
+    /// and the CoreML fallback processor costs ~a full core for the whole meeting — so this
+    /// exists to turn it off. Default true (upstream behaviour).
+    ///
+    ///   "meeting_aec_enabled": false
+    ///
+    /// Read on each MeetingNeuralAec init, so it takes effect on the next meeting rather than
+    /// the next launch. Never re-read mid-meeting: the pass-through path skips the history
+    /// buffers the model would need if it were switched back on partway through.
+    static var meetingAecEnabled: Bool { (CoachSettings.dict()["meeting_aec_enabled"] as? Bool) ?? true }
+}
+
 enum CoachSettings {
     static var forkConfigURL: URL {
         AppIdentity.supportDirectoryURL.appendingPathComponent("fork-config.json")
     }
 
-    private static func dict() -> [String: Any] {
+    fileprivate static func dict() -> [String: Any] {
         guard let data = try? Data(contentsOf: forkConfigURL),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return [:] }

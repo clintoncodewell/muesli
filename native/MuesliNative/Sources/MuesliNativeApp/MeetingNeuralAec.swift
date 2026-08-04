@@ -80,6 +80,7 @@ enum MeetingAecProcessorSelection {
     case production
     case localVQEStrict
     case dtlnOnly
+    case disabled
 
     static var environmentDefault: MeetingAecProcessorSelection {
         switch ProcessInfo.processInfo.environment["MUESLI_AEC_PROCESSOR"]?.lowercased() {
@@ -87,7 +88,14 @@ enum MeetingAecProcessorSelection {
             return .dtlnOnly
         case "localvqe-strict":
             return .localVQEStrict
-        default:
+        case "off", "none", "disabled":
+            return .disabled
+        case nil, "":
+            // fork: no env override — let fork-config.json turn AEC off (see ForkSettings).
+            // An empty value counts as absent, so a wrapper script exporting it blank does
+            // not silently pin AEC on and ignore the config.
+            return ForkSettings.meetingAecEnabled ? .production : .disabled
+        case .some:
             return .production
         }
     }
@@ -142,6 +150,10 @@ final class MeetingNeuralAec {
     /// Pre-load the meeting AEC processor so it's ready for processing.
     func preload() async {
         guard !isLoaded else { return }
+        guard selection != .disabled else {
+            fputs("[meeting-aec] disabled — mic audio passes through unprocessed\n", stderr)
+            return
+        }
 
         if selection != .dtlnOnly {
             do {
@@ -196,6 +208,7 @@ final class MeetingNeuralAec {
 
     /// Buffer system audio samples indexed by absolute position.
     func feedSystemSamples(_ samples: [Float]) {
+        guard selection != .disabled else { return }
         if systemTimelineStartSample == nil {
             systemTimelineStartSample = 0
             systemHistoryStartSample = 0
@@ -208,6 +221,8 @@ final class MeetingNeuralAec {
 
     /// Process mic samples through the loaded AEC processor using the currently estimated far-end delay.
     func processStreamingMic(_ micSamples: [Float]) -> [Float] {
+        // AEC off: no model, no delay estimator, no history buffers — straight through.
+        guard selection != .disabled else { return micSamples }
         // Always maintain history so trimHistoryBuffersIfNeeded() keeps the buffer bounded
         // regardless of whether the model is loaded. The delay estimator also benefits
         // from having data when the model finishes preloading.

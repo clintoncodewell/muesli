@@ -6,6 +6,22 @@ import Testing
 @Suite("MeetingNeuralAec")
 struct MeetingNeuralAecTests {
 
+    @Test("disabled selection passes mic audio through untouched and loads no processor")
+    func disabledSelectionPassesThrough() async {
+        let aec = MeetingNeuralAec(selection: .disabled)
+        await aec.preload()
+
+        let mic: [Float] = (0..<4096).map { Float($0 % 97) / 97 }
+        aec.feedSystemSamples((0..<4096).map { _ in Float.random(in: -1...1) })
+
+        #expect(aec.processStreamingMic(mic) == mic)
+        #expect(aec.flushStreamingMic().isEmpty)
+        // No history buffers grown and no frames run — that is where the CPU went.
+        #expect(aec.micHistoryCount == 0)
+        #expect(aec.diagnosticsSnapshot.bufferedSystemSamples == 0)
+        #expect(aec.diagnosticsSnapshot.processedFrames == 0)
+    }
+
     @Test("bundle candidates prefer Contents/Resources in packaged apps")
     func candidateURLsPreferResourceDirectory() throws {
         let fixture = try makeTemporaryAppBundle()
