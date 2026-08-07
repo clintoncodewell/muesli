@@ -1,0 +1,36 @@
+native/MuesliNative/Sources/MuesliNativeApp/MeetingCandidateResolver.swift
+  s_18f34e0bf10978::t_37766e5900177d 429-431
+  s_18f34e0bf10978::t_3e185718533822 432
+  s_18f34e0bf10978::t_01ae9d4fef5281 638-646
+native/MuesliNative/Tests/MuesliTests/MeetingAutoStopPolicyTests.swift
+  s_18f34e0bf10978::t_475e56c12ada92 178-191
+  s_c3b807068c9c7a::t_7ca5b56a5847d9 192-194
+native/MuesliNative/Sources/MuesliNativeApp/MeetingAutoStopPolicy.swift
+  s_18f34e0bf10978::t_7c3eb847534d5f 20-32
+native/MuesliNative/Tests/MuesliTests/MeetingCandidateResolverTests.swift
+  s_18f34e0bf10978::t_ae10d5a88326d5 1094-1106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "4460c014c7a678de10a95d6efe338fe694549a0a",
+  "prompts": {},
+  "sessions": {
+    "s_18f34e0bf10978": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1dea29d-5c40-4b71-a31f-eee5b26f83d2",
+        "model": "claude-opus-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    },
+    "s_c3b807068c9c7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c512ccaf-ad5b-46b0-9fd8-30b8c687708d",
+        "model": "claude-opus-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
