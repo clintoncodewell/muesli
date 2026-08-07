@@ -1,0 +1,33 @@
+native/MuesliNative/Sources/MuesliNativeApp/TranscriptFormatter.swift
+  s_18f34e0bf10978::t_6f9f2afd7b9260 277-279
+  s_18f34e0bf10978::t_27cebb027758ef 189,195,197-208,210-214
+  s_18f34e0bf10978::t_6887c78d5596e7 196,209,215-229
+  s_18f34e0bf10978::t_ff397294adcb53 310-311,314-318,323-325,327-330
+  s_18f34e0bf10978::t_0b26c54251dae0 134-139,143,150-152
+  s_18f34e0bf10978::t_76a25c55da7537 153
+  s_18f34e0bf10978::t_c8654a4cd4f119 230
+native/MuesliNative/Sources/MuesliNativeApp/MeetingMicHealthTracker.swift
+  s_18f34e0bf10978::t_f5df29debfaa93 91
+native/MuesliNative/Tests/MuesliTests/TranscriptFormatterTests.swift
+  s_18f34e0bf10978::t_1f42693370abe4 490-493,497,504,512,516-530
+  s_18f34e0bf10978::t_6527a04f6351ff 557-562,567
+  s_18f34e0bf10978::t_873f1ef74b581c 551,553-555,563-566,568-569
+  s_18f34e0bf10978::t_e1b15614e7a14a 617,620-641
+  s_18f34e0bf10978::t_2f215d31b8f5bc 531-532
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "10ad5b5d0cd59e5478e82180cbc6e27e1cbd1fc0",
+  "prompts": {},
+  "sessions": {
+    "s_18f34e0bf10978": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1dea29d-5c40-4b71-a31f-eee5b26f83d2",
+        "model": "claude-opus-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
