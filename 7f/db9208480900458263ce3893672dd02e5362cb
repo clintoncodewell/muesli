@@ -1,0 +1,53 @@
+native/MuesliNative/Sources/MuesliNativeApp/MeetingDetector.swift
+  s_18f34e0bf10978::t_fc2c1a3898cad7 31-40
+native/MuesliNative/Tests/MuesliTests/MeetingPromptStateMachineTests.swift
+  s_18f34e0bf10978::t_77a766e22fa72a 227,229-260
+  s_c3b807068c9c7a::t_29cfe8b534a538 228
+native/MuesliNative/Sources/MuesliNativeApp/MuesliController.swift
+  s_18f34e0bf10978::t_501ee7385a53cf 8616-8623,8626,8632-8633,8638-8648,8650,8653
+  s_18f34e0bf10978::t_72c9987fe2ae38 2688-2691
+  s_18f34e0bf10978::t_f35c21ab0079f0 8614-8615,8634
+native/MuesliNative/Tests/MuesliTests/GoogleCalendarTests.swift
+  s_18f34e0bf10978::t_20fd6547651d2d 322-324,328-332,346,348-354,356-358
+  s_18f34e0bf10978::t_be618d5eb4714c 292,304,317,355
+  s_18f34e0bf10978::t_605b1f01963be8 325-327,333-345
+  s_18f34e0bf10978::t_69541800c73222 289,300-301,313-314
+  s_c3b807068c9c7a::t_786c0c82ceac0a 347
+native/MuesliNative/Sources/MuesliNativeApp/MeetingPromptStateMachine.swift
+  s_18f34e0bf10978::t_990258ea2001d1 158-174
+  s_18f34e0bf10978::t_8b746cb933871f 46-49,53-57,60
+  s_18f34e0bf10978::t_a09ae5cec562e3 155
+native/MuesliNative/Sources/MuesliNativeApp/MeetingCandidateResolver.swift
+  s_18f34e0bf10978::t_fb101cc25e0552 183,193,199
+  s_18f34e0bf10978::t_a172f9369eb27e 221-230,235,245-250,252-253
+  s_18f34e0bf10978::t_892b66d26606b4 427-430
+  s_18f34e0bf10978::t_44a83d9da2abff 188,194,200
+  s_18f34e0bf10978::t_3f34717b0f4e13 213-220,231-234,236-244,251
+native/MuesliNative/Tests/MuesliTests/MeetingCandidateResolverTests.swift
+  s_18f34e0bf10978::t_42a1e785f26061 1030-1043,1052-1103
+  s_18f34e0bf10978::t_154c2425222919 1025-1029,1044-1051,1104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "7fdb9208480900458263ce3893672dd02e5362cb",
+  "prompts": {},
+  "sessions": {
+    "s_18f34e0bf10978": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1dea29d-5c40-4b71-a31f-eee5b26f83d2",
+        "model": "claude-opus-5"
+      },
+      "human_author": null
+    },
+    "s_c3b807068c9c7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c512ccaf-ad5b-46b0-9fd8-30b8c687708d",
+        "model": "claude-opus-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
