@@ -21,44 +21,6 @@ struct MeetingMicHealthTrackerTests {
         #expect(snapshot.warningMessage != nil)
     }
 
-    @Test("a present but unusably quiet mic is flagged, not reported healthy")
-    func quietMicIsFlagged() {
-        // Regression: real sessions recorded at peak 0.024 (built-in mic while wearing a headset)
-        // were reported healthy, because hasSignal passes on any non-silence via zeroRatio.
-        let tracker = MeetingMicHealthTracker()
-        let now = Date()
-        let quietMic = Array(repeating: Int16(800), count: 16_000)   // peak ~0.024
-        let loudSystem = Array(repeating: Int16(6_000), count: 16_000)
-
-        var snapshot = tracker.noteRawMicSamples(quietMic, now: now)
-        for second in 1...320 {
-            let t = now.addingTimeInterval(TimeInterval(second))
-            _ = tracker.noteRawMicSamples(quietMic, now: t)
-            snapshot = tracker.noteSystemSamples(loudSystem, now: t)
-        }
-
-        #expect(snapshot.state == .micLevelTooLow)
-        #expect(snapshot.warningMessage != nil)
-    }
-
-    @Test("a mic at a normal level is never flagged as too quiet")
-    func normalLevelMicIsNotFlagged() {
-        let tracker = MeetingMicHealthTracker()
-        let now = Date()
-        let normalMic = Array(repeating: Int16(9_000), count: 16_000)   // peak ~0.27
-        let loudSystem = Array(repeating: Int16(6_000), count: 16_000)
-
-        var snapshot = tracker.noteRawMicSamples(normalMic, now: now)
-        for second in 1...320 {
-            let t = now.addingTimeInterval(TimeInterval(second))
-            _ = tracker.noteRawMicSamples(normalMic, now: t)
-            snapshot = tracker.noteSystemSamples(loudSystem, now: t)
-        }
-
-        #expect(snapshot.state == .healthy)
-        #expect(snapshot.warningMessage == nil)
-    }
-
     @Test("system audio without mic callbacks is distinguishable from all-zero mic")
     func systemAudioWithoutMicCallbacksIsMissingCallbacks() {
         let tracker = MeetingMicHealthTracker()

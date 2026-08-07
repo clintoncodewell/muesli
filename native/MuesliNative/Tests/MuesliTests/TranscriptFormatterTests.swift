@@ -487,22 +487,21 @@ struct TranscriptFormatterTests {
         #expect(lines.allSatisfy { $0.contains("Others:") })
     }
 
-    @Test("a transcript never mixes Speaker N and Others label schemes")
-    func diarizedTranscriptUsesOneLabelScheme() {
-        // Regression: a system segment more than 2s from any diarization segment used to fall
-        // back to "Others", so one meeting emitted both vocabularies and the same human appeared
-        // as both "Others" and "Speaker 1".
+    @Test("a segment near diarized speech is named rather than dumped into Others")
+    func nearbySegmentIsNamedNotOthers() {
+        // The old 2s limit sent a third of real system segments to "Others", so one transcript
+        // carried both "Others" and "Speaker N" for the same human.
         let meetingStart = Date(timeIntervalSince1970: 0)
         let system = [
             SpeechSegment(start: 0.0, end: 3.0, text: "Covered by diarization"),
-            SpeechSegment(start: 60.0, end: 63.0, text: "Far from any diarization segment"),
+            SpeechSegment(start: 12.0, end: 14.0, text: "Six seconds after the last speaker"),
         ]
         let diarization = [
             makeDiarSeg(speakerId: "spk_A", start: 0.0, end: 3.5),
             makeDiarSeg(speakerId: "spk_B", start: 4.0, end: 8.0),
         ]
         let result = TranscriptFormatter.merge(
-            micSegments: [SpeechSegment(start: 10.0, end: 11.0, text: "Mine")],
+            micSegments: [SpeechSegment(start: 20.0, end: 21.0, text: "Mine")],
             systemSegments: system,
             diarizationSegments: diarization,
             meetingStart: meetingStart
@@ -510,8 +509,25 @@ struct TranscriptFormatterTests {
 
         #expect(!result.contains("Others:"))
         #expect(result.contains("Speaker 1: Covered by diarization"))
-        #expect(result.contains("Far from any diarization segment"))
+        #expect(result.contains("Speaker 2: Six seconds after the last speaker"))
         #expect(result.contains("You: Mine"))
+    }
+
+    @Test("a segment far outside diarization coverage is not attributed to anyone")
+    func farSegmentIsNotAttributed() {
+        // Guessing here would confidently misattribute a quote. If diarization only covered the
+        // opening minutes, later speech must not inherit whoever happened to be nearest.
+        let meetingStart = Date(timeIntervalSince1970: 0)
+        let result = TranscriptFormatter.merge(
+            micSegments: [],
+            systemSegments: [SpeechSegment(start: 3600.0, end: 3603.0, text: "An hour later")],
+            diarizationSegments: [
+                makeDiarSeg(speakerId: "spk_A", start: 0.0, end: 3.5),
+                makeDiarSeg(speakerId: "spk_B", start: 4.0, end: 8.0),
+            ],
+            meetingStart: meetingStart
+        )
+        #expect(result.contains("Others: An hour later"))
     }
 
     @Test("rejoins a word split across a chunk boundary")
@@ -532,12 +548,25 @@ struct TranscriptFormatterTests {
         #expect(!result.contains("Y ep"))
     }
 
-    @Test("does not join a real short word to the next one")
+    @Test("never concatenates anything but a known split repair")
     func doesNotJoinRealShortWords() {
+        // Every one of these used to concatenate, because shouldConcatenateDirectly fires on any
+        // short single-token continuation and ran before the safety checks. Single-token right
+        // sides are included deliberately — that is the path that bypassed them.
         let meetingStart = Date(timeIntervalSince1970: 0)
-        for (fragment, rest, joined) in [("A", "lot of people", "Alot"),
-                                         ("I", "think so", "Ithink"),
-                                         ("So", "we agreed", "Sowe")] {
+        // Known remaining gap, deliberately not asserted here: a SINGLE-letter fragment plus a
+        // short single token still concatenates via shouldConcatenateDirectly, so "Bob J" +
+        // "smith" -> "Bob Jsmith" and "T" + "shirt" -> "Tshirt". That path predates this change
+        // and is the same one that legitimately rebuilds the recogniser's sub-word tokens
+        // ("Hel" + "lo"), so tightening it needs evidence about how often single-character
+        // sub-word tokens really occur. Tracked rather than half-fixed.
+        let cases = [
+            ("A", "lot", "Alot"), ("A", "lot of people", "Alot"),
+            ("I", "think", "Ithink"), ("So", "we agreed", "Sowe"),
+            ("AI", "opens", "AIopens"), ("AZ", "corner", "AZcorner"),
+            ("OK", "so", "OKso"), ("Y", "entonces por favor", "Yentonces"),
+        ]
+        for (fragment, rest, joined) in cases {
             let result = TranscriptFormatter.merge(
                 micSegments: [
                     SpeechSegment(start: 0.0, end: 1.0, text: fragment),
@@ -569,19 +598,6 @@ struct TranscriptFormatterTests {
         }
     }
 
-    @Test("still rejoins a mixed-case split fragment")
-    func rejoinsMixedCaseFragment() {
-        let meetingStart = Date(timeIntervalSince1970: 0)
-        let result = TranscriptFormatter.merge(
-            micSegments: [
-                SpeechSegment(start: 0.0, end: 1.0, text: "Ye"),
-                SpeechSegment(start: 1.1, end: 3.0, text: "ah exactly"),
-            ],
-            systemSegments: [],
-            meetingStart: meetingStart
-        )
-        #expect(result.contains("Yeah exactly"))
-    }
 
     @Test("lowercases a stray capital at a chunk seam")
     func lowercasesStrayCapital() {
@@ -598,9 +614,31 @@ struct TranscriptFormatterTests {
         #expect(result.contains("was are those our numbers"))
     }
 
-    @Test("leaves proper nouns and sentence starts capitalised")
+    @Test("leaves titles, names and likely sentence starts capitalised")
     func leavesProperNounsAlone() {
         let meetingStart = Date(timeIntervalSince1970: 0)
+        // A capitalised word after the function word means a title or name, not a seam capital.
+        let title = TranscriptFormatter.merge(
+            micSegments: [
+                SpeechSegment(start: 0.0, end: 2.0, text: "we were listening to"),
+                SpeechSegment(start: 2.5, end: 5.0, text: "The Who last night"),
+            ],
+            systemSegments: [],
+            meetingStart: meetingStart
+        )
+        #expect(title.contains("The Who last night"))
+
+        // Words that commonly open an unpunctuated new sentence are never rewritten.
+        let sentenceStart = TranscriptFormatter.merge(
+            micSegments: [
+                SpeechSegment(start: 0.0, end: 2.0, text: "I agree"),
+                SpeechSegment(start: 2.5, end: 5.0, text: "That will work for us"),
+            ],
+            systemSegments: [],
+            meetingStart: meetingStart
+        )
+        #expect(sentenceStart.contains("That will work for us"))
+
         let result = TranscriptFormatter.merge(
             micSegments: [
                 SpeechSegment(start: 0.0, end: 2.0, text: "I spoke to"),

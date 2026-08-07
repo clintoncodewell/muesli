@@ -6,7 +6,6 @@ enum MeetingMicHealthState: String, Codable, Equatable {
     case waitingForAudio
     case micCallbacksMissing
     case micAllZeroWhileSystemActive
-    case micLevelTooLow
 
     var userMessage: String? {
         switch self {
@@ -16,9 +15,6 @@ enum MeetingMicHealthState: String, Codable, Equatable {
             return "Microphone audio is not reaching Muesli. This meeting transcript may miss your side."
         case .micAllZeroWhileSystemActive:
             return "Microphone audio is silent. This meeting transcript may miss your side."
-        case .micLevelTooLow:
-            return "Microphone level is very low — check you are recording from the right microphone. "
-                + "This meeting transcript may miss your side."
         }
     }
 }
@@ -60,8 +56,6 @@ final class MeetingMicHealthTracker {
         var lastRawMicWasEffectivelyZero = true
         var activeSystemSamplesWhileMicMissing = 0
         var activeSystemSamplesWhileMicZero = 0
-        var activeSystemSamplesWhileMicQuiet = 0
-        var loudestMicPeak: Double = 0
         var transitions: [MeetingMicHealthTransition] = []
     }
 
@@ -69,15 +63,6 @@ final class MeetingMicHealthTracker {
     private static let activeSystemPeakThreshold = 0.01
     private static let nonZeroMicPeakThreshold = 0.0001
     private static let zeroRatioThreshold = 0.999
-    /// A mic whose loudest sample over a long stretch never reaches this is not going to
-    /// transcribe. Real sessions here peak at 1.0; the failing ones peaked at 0.024 and 0.061,
-    /// which is the built-in mic picking up a headset user from across the desk. Those still
-    /// counted as "healthy" because the zeroRatio arm of `hasSignal` short-circuits the peak
-    /// check — non-silence is not the same as usable level.
-    private static let usableMicPeakThreshold = 0.08
-    /// Only judge after this much *system-active* audio, so a long stretch where the other side
-    /// is talking and the user simply is not does not trip it.
-    private static let lowLevelConfirmationSamples = sampleRate * 300
     private static let degradedConfirmationSamples = sampleRate * 3
     private static let micCallbackStaleThreshold: TimeInterval = 1.0
     private static let maxTransitions = 32
@@ -98,21 +83,12 @@ final class MeetingMicHealthTracker {
             let hasSignal = stats.peak > Self.nonZeroMicPeakThreshold
                 || zeroRatio < Self.zeroRatioThreshold
             state.lastRawMicWasEffectivelyZero = !hasSignal
-            state.loudestMicPeak = max(state.loudestMicPeak, stats.peak)
-            if state.loudestMicPeak > Self.usableMicPeakThreshold {
-                state.activeSystemSamplesWhileMicQuiet = 0
-            }
             if hasSignal {
                 state.firstNonZeroMicAt = state.firstNonZeroMicAt ?? now
                 state.lastNonZeroMicAt = now
                 state.activeSystemSamplesWhileMicMissing = 0
                 state.activeSystemSamplesWhileMicZero = 0
-                // Recovery from a missing/silent mic still clears unconditionally. A quiet-but-
-                // present mic is judged separately, in noteSystemSamples, once there has been
-                // enough conversation to be sure the user simply was not silent.
-                if state.healthState != .micLevelTooLow {
-                    transitionLocked(&state, to: .healthy, reason: "raw_mic_signal_detected", now: now)
-                }
+                transitionLocked(&state, to: .healthy, reason: "raw_mic_signal_detected", now: now)
             }
             return snapshotLocked(state)
         }
@@ -148,15 +124,6 @@ final class MeetingMicHealthTracker {
             } else {
                 state.activeSystemSamplesWhileMicMissing = 0
                 state.activeSystemSamplesWhileMicZero = 0
-                // Mic is arriving and non-silent, but has it ever been loud enough to transcribe?
-                if state.loudestMicPeak <= Self.usableMicPeakThreshold {
-                    state.activeSystemSamplesWhileMicQuiet += samples.count
-                    if state.activeSystemSamplesWhileMicQuiet >= Self.lowLevelConfirmationSamples {
-                        transitionLocked(&state, to: .micLevelTooLow, reason: "mic_peak_below_usable_level", now: now)
-                    }
-                } else if state.healthState == .micLevelTooLow {
-                    transitionLocked(&state, to: .healthy, reason: "mic_level_recovered", now: now)
-                }
             }
             return snapshotLocked(state)
         }

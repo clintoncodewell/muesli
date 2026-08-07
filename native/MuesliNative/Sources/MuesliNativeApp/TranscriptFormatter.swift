@@ -131,20 +131,25 @@ enum TranscriptFormatter {
             return label
         }
 
-        // No gap limit on purpose. Once diarization has produced speakers, every system segment
-        // must resolve to one of them: falling back to "Others" here is what put "Others" and
-        // "Speaker 1" in the same transcript for the same human, since whether a segment got a
-        // name depended only on whether the diarizer happened to cover that instant.
-        // diarizationSegments is non-empty at every call site, so nearestSpeaker always answers.
+        // The old 2s limit made a third of this user's system segments fall back to "Others",
+        // so one transcript carried both "Others" and "Speaker N" for the same human. Widened,
+        // but deliberately still bounded: with no limit at all, a meeting where diarization only
+        // covered the opening minutes would attribute every later segment to whoever happened to
+        // be nearest, which is confidently wrong rather than honestly unknown. Misattributing a
+        // quote is worse than declining to name the speaker.
         if let nearestSpeakerId = nearestSpeaker(
             for: segment,
             in: diarizationSegments,
-            maxGapSeconds: .greatestFiniteMagnitude
+            maxGapSeconds: unattributedSpeakerGapSeconds
         ), let label = labelMap[nearestSpeakerId] {
             return label
         }
         return "Others"
     }
+
+    /// How far a transcript segment may sit from the nearest diarized speech before we stop
+    /// guessing who it was.
+    private static let unattributedSpeakerGapSeconds: Float = 10
 
 
     private static func nearestSpeaker(
@@ -181,11 +186,47 @@ enum TranscriptFormatter {
         if shouldConcatenateDirectly(lhs, rhs, gap: gap) {
             return lhs + rhs
         }
-        if shouldRejoinSplitWord(lhs, rhs, gap: gap) {
+        if shouldRejoinSplitWord(lhs, rhs, gap: gap), joinProducesExpectedWord(lhs, rhs) {
             return lhs + rhs
         }
         return joinText(lhs, rhs)
     }
+
+    /// A trailing token that must never be glued to what follows.
+    ///
+    /// Only applies to one and two character tokens, so genuine sub-word consolidation of the
+    /// recogniser's own token stream ("Hel" + "lo", "wor" + "ld") is untouched.
+    private static func isUnsafeJoinFragment(_ token: String) -> Bool {
+        guard visibleLength(of: token) <= 2, token.allSatisfy(\.isLetter) else { return false }
+        // A real short word: "A" + "lot" must not become "Alot".
+        if standaloneShortWords.contains(token.lowercased()) { return true }
+        // A two-letter acronym: this user's transcripts are full of "AI opens", "AZ corner".
+        if token.count == 2 && token.allSatisfy(\.isUppercase) { return true }
+        return false
+    }
+
+    /// The joined token must be a word we actually expect to see split by an utterance onset.
+    ///
+    /// Casing and length heuristics are not enough on their own: initials ("Bob J" + "smith"),
+    /// spelled letters ("X" + "ray", which would need a hyphen anyway), technical terms
+    /// ("Vitamin B" + "complex") and other languages ("Y" + "entonces") all look identical to a
+    /// real split. Rewriting the user's words wrongly is worse than leaving an artifact, so this
+    /// is a positive allowlist of the repairs actually observed rather than a negative list of
+    /// exceptions, which can never be complete.
+    private static func joinProducesExpectedWord(_ lhs: String, _ rhs: String) -> Bool {
+        let lhsLastToken = String(lhs.split(whereSeparator: \.isWhitespace).last ?? "")
+        let rhsFirstToken = String(rhs.prefix { !$0.isWhitespace })
+        let joined = (lhsLastToken + rhsFirstToken).filter(\.isLetter).lowercased()
+        return expectedSplitRepairs.contains(joined)
+    }
+
+    /// Short discourse words the recogniser splits at an utterance onset. Measured from real
+    /// transcripts: "Y ep", "Y es", "Ye ah", "B oth".
+    private static let expectedSplitRepairs: Set<String> = [
+        "yep", "yes", "yeah", "yup", "yay", "nope", "nah", "okay", "both", "right", "sure",
+        "true", "well", "exactly", "correct", "maybe", "sorry", "thanks", "hello", "great",
+        "good", "fine", "cool", "agreed", "perfect", "absolutely", "definitely",
+    ]
 
     /// A word split across a chunk boundary, where the following chunk carries a whole phrase.
     ///
@@ -233,6 +274,9 @@ enum TranscriptFormatter {
 
         let lhsLastToken = lhs.split(whereSeparator: \.isWhitespace).last.map(String.init) ?? lhs
         guard !lhsLastToken.contains(where: \.isWhitespace) else { return false }
+        // This path fires on any short single-token continuation, which is right for the
+        // recogniser's sub-word tokens but wrong for a real word or acronym at a chunk seam.
+        guard !isUnsafeJoinFragment(lhsLastToken) else { return false }
 
         let lhsVisibleLength = visibleLength(of: lhsLastToken)
         let rhsVisibleLength = visibleLength(of: rhs)
@@ -263,19 +307,27 @@ enum TranscriptFormatter {
     /// acronyms, "I") is left exactly as the recogniser produced it.
     private static func downcasingStrayCapital(_ rhs: String) -> String {
         guard let first = rhs.first, first.isUppercase else { return rhs }
-        let firstToken = rhs.prefix { !$0.isWhitespace }
+        let tokens = rhs.split(whereSeparator: \.isWhitespace)
+        guard let firstToken = tokens.first else { return rhs }
         let bare = firstToken.filter(\.isLetter).lowercased()
         guard midSentenceFunctionWords.contains(bare) else { return rhs }
+        // A capitalised word following it means this is probably a title or a name, not a stray
+        // seam capital — "The Who", "That Sarah mentioned". Leave those alone.
+        if let second = tokens.dropFirst().first, let secondFirst = second.first, secondFirst.isUppercase {
+            return rhs
+        }
         // Preserve the rest of the token verbatim; only the leading character changes.
         return first.lowercased() + rhs.dropFirst()
     }
 
+    /// Deliberately excludes words that commonly open a genuine sentence the recogniser failed to
+    /// punctuate ("It", "This", "There", "They", "He", "She"): lowercasing those hides a real
+    /// sentence boundary, which changes how the transcript reads.
     private static let midSentenceFunctionWords: Set<String> = [
-        "the", "a", "an", "and", "but", "or", "so", "that", "this", "these", "those", "is", "are",
-        "was", "were", "be", "been", "being", "has", "have", "had", "do", "does", "did", "of",
-        "to", "in", "on", "at", "for", "with", "as", "by", "from", "if", "not", "we", "you",
-        "they", "it", "he", "she", "there", "their", "our", "your", "its", "when", "where",
-        "which", "who", "how", "than", "then", "because", "just", "about", "into", "over",
+        "the", "a", "an", "and", "but", "or", "of", "to", "in", "on", "at", "for", "with", "as",
+        "by", "from", "if", "not", "is", "are", "was", "were", "be", "been", "being", "has",
+        "have", "had", "than", "then", "because", "just", "about", "into", "over", "which",
+        "whether", "while", "though", "although", "unless", "until", "onto", "upon",
     ]
 
     private static func visibleLength(of text: String) -> Int {
