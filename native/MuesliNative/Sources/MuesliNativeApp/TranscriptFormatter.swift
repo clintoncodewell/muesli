@@ -127,16 +127,21 @@ enum TranscriptFormatter {
             }
         }
 
-        if let bestSpeakerId, bestOverlap > 0 {
-            return labelMap[bestSpeakerId] ?? "Others"
+        if let bestSpeakerId, bestOverlap > 0, let label = labelMap[bestSpeakerId] {
+            return label
         }
 
+        // No gap limit on purpose. Once diarization has produced speakers, every system segment
+        // must resolve to one of them: falling back to "Others" here is what put "Others" and
+        // "Speaker 1" in the same transcript for the same human, since whether a segment got a
+        // name depended only on whether the diarizer happened to cover that instant.
+        // diarizationSegments is non-empty at every call site, so nearestSpeaker always answers.
         if let nearestSpeakerId = nearestSpeaker(
             for: segment,
             in: diarizationSegments,
-            maxGapSeconds: 2.0
-        ) {
-            return labelMap[nearestSpeakerId] ?? "Others"
+            maxGapSeconds: .greatestFiniteMagnitude
+        ), let label = labelMap[nearestSpeakerId] {
+            return label
         }
         return "Others"
     }
@@ -176,8 +181,48 @@ enum TranscriptFormatter {
         if shouldConcatenateDirectly(lhs, rhs, gap: gap) {
             return lhs + rhs
         }
+        if shouldRejoinSplitWord(lhs, rhs, gap: gap) {
+            return lhs + rhs
+        }
         return joinText(lhs, rhs)
     }
+
+    /// A word split across a chunk boundary, where the following chunk carries a whole phrase.
+    ///
+    /// The recogniser emits the first phoneme of an utterance as its own token when the chunk
+    /// rotates mid-word, producing "Y" + "ep, that works for me" -> "Y ep, that works for me".
+    /// `shouldConcatenateDirectly` was written for this but only fires when the ENTIRE next
+    /// segment is one token, which is almost never true in a meeting, so the repair never ran.
+    ///
+    /// Deliberately narrow: the fragment must be CAPITALISED and the continuation lowercase.
+    /// That is the unambiguous utterance-onset signature ("Y ep", "B oth", "O tree", "Ye ah").
+    /// Lowercase fragments ("th there", "l lens", "od but") are left alone — those are duplicated
+    /// onsets or tails of the previous word, and joining them would produce "ththere".
+    /// Real short words are excluded so "A lot" and "I think" survive untouched.
+    private static func shouldRejoinSplitWord(_ lhs: String, _ rhs: String, gap: TimeInterval) -> Bool {
+        guard gap <= 0.35, !lhs.isEmpty, !rhs.isEmpty else { return false }
+        guard let lhsLast = lhs.last, let rhsFirst = rhs.first else { return false }
+        guard !lhsLast.isWhitespace, !rhsFirst.isWhitespace, !rhsFirst.isPunctuation else { return false }
+        guard rhsFirst.isLowercase else { return false }
+
+        let lhsLastToken = String(lhs.split(whereSeparator: \.isWhitespace).last ?? "")
+        guard visibleLength(of: lhsLastToken) <= 2 else { return false }
+        guard lhsLastToken.allSatisfy(\.isLetter) else { return false }
+        guard let fragmentFirst = lhsLastToken.first, fragmentFirst.isUppercase else { return false }
+        // A two-letter all-caps token is an acronym, not half a word. This user's transcripts are
+        // full of "AI opens", "AZ corner", "RI is" — joining those would produce "AIopens".
+        // "Ye" (mixed case, from "Ye ah") is still a split and still joins.
+        guard !(lhsLastToken.count == 2 && lhsLastToken.allSatisfy(\.isUppercase)) else { return false }
+        guard !standaloneShortWords.contains(lhsLastToken.lowercased()) else { return false }
+        return true
+    }
+
+    /// One and two letter strings that are real words, so a following lowercase token is a new
+    /// word rather than the rest of a split one.
+    private static let standaloneShortWords: Set<String> = [
+        "a", "i", "an", "as", "at", "be", "by", "do", "go", "he", "hi", "if", "in", "is", "it",
+        "me", "my", "no", "of", "oh", "ok", "on", "or", "so", "to", "up", "us", "we",
+    ]
 
     private static func shouldConcatenateDirectly(_ lhs: String, _ rhs: String, gap: TimeInterval) -> Bool {
         guard gap <= 0.35 else { return false }
@@ -209,8 +254,29 @@ enum TranscriptFormatter {
             return lhs + " " + rhs
         }
 
-        return lhs + " " + rhs
+        return lhs + " " + downcasingStrayCapital(rhs)
     }
+
+    /// Each chunk is punctuated and capitalised independently, so a sentence continuing across a
+    /// chunk boundary gets a capital in the middle of it: "the data is Are those numbers ours".
+    /// Only rewrites a small set of function words — anything not on the list (proper nouns,
+    /// acronyms, "I") is left exactly as the recogniser produced it.
+    private static func downcasingStrayCapital(_ rhs: String) -> String {
+        guard let first = rhs.first, first.isUppercase else { return rhs }
+        let firstToken = rhs.prefix { !$0.isWhitespace }
+        let bare = firstToken.filter(\.isLetter).lowercased()
+        guard midSentenceFunctionWords.contains(bare) else { return rhs }
+        // Preserve the rest of the token verbatim; only the leading character changes.
+        return first.lowercased() + rhs.dropFirst()
+    }
+
+    private static let midSentenceFunctionWords: Set<String> = [
+        "the", "a", "an", "and", "but", "or", "so", "that", "this", "these", "those", "is", "are",
+        "was", "were", "be", "been", "being", "has", "have", "had", "do", "does", "did", "of",
+        "to", "in", "on", "at", "for", "with", "as", "by", "from", "if", "not", "we", "you",
+        "they", "it", "he", "she", "there", "their", "our", "your", "its", "when", "where",
+        "which", "who", "how", "than", "then", "because", "just", "about", "into", "over",
+    ]
 
     private static func visibleLength(of text: String) -> Int {
         text.unicodeScalars.reduce(0) { partialResult, scalar in

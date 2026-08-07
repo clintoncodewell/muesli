@@ -487,6 +487,141 @@ struct TranscriptFormatterTests {
         #expect(lines.allSatisfy { $0.contains("Others:") })
     }
 
+    @Test("a transcript never mixes Speaker N and Others label schemes")
+    func diarizedTranscriptUsesOneLabelScheme() {
+        // Regression: a system segment more than 2s from any diarization segment used to fall
+        // back to "Others", so one meeting emitted both vocabularies and the same human appeared
+        // as both "Others" and "Speaker 1".
+        let meetingStart = Date(timeIntervalSince1970: 0)
+        let system = [
+            SpeechSegment(start: 0.0, end: 3.0, text: "Covered by diarization"),
+            SpeechSegment(start: 60.0, end: 63.0, text: "Far from any diarization segment"),
+        ]
+        let diarization = [
+            makeDiarSeg(speakerId: "spk_A", start: 0.0, end: 3.5),
+            makeDiarSeg(speakerId: "spk_B", start: 4.0, end: 8.0),
+        ]
+        let result = TranscriptFormatter.merge(
+            micSegments: [SpeechSegment(start: 10.0, end: 11.0, text: "Mine")],
+            systemSegments: system,
+            diarizationSegments: diarization,
+            meetingStart: meetingStart
+        )
+
+        #expect(!result.contains("Others:"))
+        #expect(result.contains("Speaker 1: Covered by diarization"))
+        #expect(result.contains("Far from any diarization segment"))
+        #expect(result.contains("You: Mine"))
+    }
+
+    @Test("rejoins a word split across a chunk boundary")
+    func rejoinsSplitWord() {
+        // Measured artifacts: "Y ep", "B oth", "Ye ah" — the first phoneme of an utterance lands
+        // in its own chunk. The repair that existed only fired when the whole next segment was a
+        // single token, which never happens mid-meeting.
+        let meetingStart = Date(timeIntervalSince1970: 0)
+        let result = TranscriptFormatter.merge(
+            micSegments: [
+                SpeechSegment(start: 0.0, end: 1.0, text: "Y"),
+                SpeechSegment(start: 1.1, end: 3.0, text: "ep, that works for me"),
+            ],
+            systemSegments: [],
+            meetingStart: meetingStart
+        )
+        #expect(result.contains("Yep, that works for me"))
+        #expect(!result.contains("Y ep"))
+    }
+
+    @Test("does not join a real short word to the next one")
+    func doesNotJoinRealShortWords() {
+        let meetingStart = Date(timeIntervalSince1970: 0)
+        for (fragment, rest, joined) in [("A", "lot of people", "Alot"),
+                                         ("I", "think so", "Ithink"),
+                                         ("So", "we agreed", "Sowe")] {
+            let result = TranscriptFormatter.merge(
+                micSegments: [
+                    SpeechSegment(start: 0.0, end: 1.0, text: fragment),
+                    SpeechSegment(start: 1.1, end: 3.0, text: rest),
+                ],
+                systemSegments: [],
+                meetingStart: meetingStart
+            )
+            #expect(!result.contains(joined), "should not have produced \(joined)")
+        }
+    }
+
+    @Test("does not glue an acronym to the following word")
+    func doesNotJoinAcronyms() {
+        // These all appear verbatim in real transcripts from this user; joining them would
+        // produce "AIopens", "AZcorner", "RIis".
+        let meetingStart = Date(timeIntervalSince1970: 0)
+        for (acronym, rest) in [("AI", "opens up a lot"), ("AZ", "corner of the map"),
+                                ("RI", "is the other one"), ("OK", "so where were we")] {
+            let result = TranscriptFormatter.merge(
+                micSegments: [
+                    SpeechSegment(start: 0.0, end: 1.0, text: acronym),
+                    SpeechSegment(start: 1.1, end: 3.0, text: rest),
+                ],
+                systemSegments: [],
+                meetingStart: meetingStart
+            )
+            #expect(result.contains("\(acronym) \(rest)"), "acronym \(acronym) should stay separate")
+        }
+    }
+
+    @Test("still rejoins a mixed-case split fragment")
+    func rejoinsMixedCaseFragment() {
+        let meetingStart = Date(timeIntervalSince1970: 0)
+        let result = TranscriptFormatter.merge(
+            micSegments: [
+                SpeechSegment(start: 0.0, end: 1.0, text: "Ye"),
+                SpeechSegment(start: 1.1, end: 3.0, text: "ah exactly"),
+            ],
+            systemSegments: [],
+            meetingStart: meetingStart
+        )
+        #expect(result.contains("Yeah exactly"))
+    }
+
+    @Test("lowercases a stray capital at a chunk seam")
+    func lowercasesStrayCapital() {
+        // Each chunk is capitalised independently, giving "the data is Are those ours".
+        let meetingStart = Date(timeIntervalSince1970: 0)
+        let result = TranscriptFormatter.merge(
+            micSegments: [
+                SpeechSegment(start: 0.0, end: 2.0, text: "the question I had was"),
+                SpeechSegment(start: 2.5, end: 5.0, text: "Are those our numbers"),
+            ],
+            systemSegments: [],
+            meetingStart: meetingStart
+        )
+        #expect(result.contains("was are those our numbers"))
+    }
+
+    @Test("leaves proper nouns and sentence starts capitalised")
+    func leavesProperNounsAlone() {
+        let meetingStart = Date(timeIntervalSince1970: 0)
+        let result = TranscriptFormatter.merge(
+            micSegments: [
+                SpeechSegment(start: 0.0, end: 2.0, text: "I spoke to"),
+                SpeechSegment(start: 2.5, end: 5.0, text: "Sarah about it"),
+            ],
+            systemSegments: [],
+            meetingStart: meetingStart
+        )
+        #expect(result.contains("Sarah about it"))
+
+        let afterFullStop = TranscriptFormatter.merge(
+            micSegments: [
+                SpeechSegment(start: 0.0, end: 2.0, text: "That is done."),
+                SpeechSegment(start: 2.5, end: 5.0, text: "The next thing is"),
+            ],
+            systemSegments: [],
+            meetingStart: meetingStart
+        )
+        #expect(afterFullStop.contains("The next thing is"))
+    }
+
     // MARK: - Helpers
 
     private func makeDiarSeg(speakerId: String, start: Float, end: Float) -> TimedSpeakerSegment {
