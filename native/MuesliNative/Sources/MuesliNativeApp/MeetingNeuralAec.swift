@@ -1,5 +1,6 @@
 import DTLNAecCoreML
 import Foundation
+import os
 
 protocol MeetingAecProcessor: AnyObject {
     var name: String { get }
@@ -102,6 +103,8 @@ enum MeetingAecProcessorSelection {
 }
 
 final class MeetingNeuralAec {
+    private static let logger = Logger(subsystem: "com.muesli.native", category: "MeetingAec")
+
     private var processor: MeetingAecProcessor?
     private var isLoaded = false
 
@@ -161,10 +164,10 @@ final class MeetingNeuralAec {
                 processor = localVQE
                 frameSize = localVQE.frameSize
                 isLoaded = true
-                fputs("[meeting-aec] LocalVQE preloaded (\(localVQE.libraryPath), model: \(localVQE.modelPath))\n", stderr)
+                Self.logger.info("LocalVQE preloaded (frameSize=\(localVQE.frameSize, privacy: .public), library=\(localVQE.libraryPath, privacy: .public), model=\(localVQE.modelPath, privacy: .public))")
                 return
             } catch {
-                fputs("[meeting-aec] LocalVQE preload failed: \(error)\n", stderr)
+                Self.logger.error("LocalVQE preload failed; falling back to DTLN: \(String(describing: error), privacy: .public)")
                 if selection == .localVQEStrict {
                     return
                 }
@@ -176,9 +179,9 @@ final class MeetingNeuralAec {
             processor = dtln
             frameSize = dtln.frameSize
             isLoaded = true
-            fputs("[meeting-aec] DTLN-aec model preloaded\n", stderr)
+            Self.logger.info("DTLN-aec model preloaded (frameSize=\(dtln.frameSize, privacy: .public))")
         } catch {
-            fputs("[meeting-aec] DTLN-aec preload failed: \(error)\n", stderr)
+            Self.logger.error("DTLN-aec preload failed: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -527,6 +530,10 @@ final class MeetingNeuralAec {
     var diagnosticsSnapshot: MeetingAecDiagnosticsSnapshot {
         MeetingAecDiagnosticsSnapshot(
             ready: isReady,
+            processor: processor?.name,
+            // 0 means unloaded — do not advertise LocalVQE's 256-sample default
+            // before preload selects a processor.
+            frameSize: processor?.frameSize ?? 0,
             processedFrames: processedFrames,
             fullReferenceFrames: fullReferenceFrames,
             partialReferenceFrames: partialReferenceFrames,
