@@ -122,6 +122,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             statusItem.menu = menu
             statusItem.button?.performClick(nil)
             statusItem.menu = nil
+        } else if ForkSettings.focusUIEnabled {
+            controller.openFocusWindow()
         } else {
             controller.openHistoryWindow()
         }

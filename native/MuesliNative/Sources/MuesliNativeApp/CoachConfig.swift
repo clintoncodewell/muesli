@@ -80,6 +80,13 @@ enum ForkSettings {
     /// the next launch. Never re-read mid-meeting: the pass-through path skips the history
     /// buffers the model would need if it were switched back on partway through.
     static var meetingAecEnabled: Bool { (CoachSettings.dict()["meeting_aec_enabled"] as? Bool) ?? true }
+
+    /// The minimal notes-first window (Focus UI). When true, left-clicking the menu bar icon
+    /// opens the Focus window instead of the full dashboard; the dashboard stays reachable from
+    /// the right-click menu and from inside the Focus window.
+    ///
+    ///   "focus_ui_enabled": true
+    static var focusUIEnabled: Bool { (CoachSettings.dict()["focus_ui_enabled"] as? Bool) ?? false }
 }
 
 enum CoachSettings {
