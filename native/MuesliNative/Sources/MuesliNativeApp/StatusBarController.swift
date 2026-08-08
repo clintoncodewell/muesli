@@ -109,6 +109,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
         rebuildMenu()
         updateMenuBarTitle()
+        controller.openFocusWindowAtLaunchIfRequested()   // fork: dev-only, env-gated
     }
 
     @objc private func statusItemClicked() {

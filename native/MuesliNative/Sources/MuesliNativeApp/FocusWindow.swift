@@ -53,6 +53,17 @@ extension MuesliController {
     // window controller (and its retained controller) is released rather than leaked.
     private static var sharedFocusWindowController: FocusWindowController?
 
+    /// Dev affordance for headless visual QA: MUESLI_OPEN_FOCUS=1 opens the Focus window at
+    /// launch, and MUESLI_FOCUS_SELECT=<meetingID> opens it straight onto that note. No-ops
+    /// unless the env vars are set, so normal launches are unaffected.
+    @MainActor
+    func openFocusWindowAtLaunchIfRequested() {
+        guard ProcessInfo.processInfo.environment["MUESLI_OPEN_FOCUS"] == "1" else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.openFocusWindow()
+        }
+    }
+
     @MainActor
     func openFocusWindow() {
         let windowController: FocusWindowController

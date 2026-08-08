@@ -9,7 +9,9 @@ struct FocusRootView: View {
     let appState: AppState
     let controller: MuesliController
 
-    @State private var selectedMeetingID: Int64?
+    // Initial selection is env-overridable (MUESLI_FOCUS_SELECT=<id>) for headless visual QA.
+    @State private var selectedMeetingID: Int64? =
+        ProcessInfo.processInfo.environment["MUESLI_FOCUS_SELECT"].flatMap(Int64.init)
     @State private var searchQuery = ""
 
     var body: some View {
