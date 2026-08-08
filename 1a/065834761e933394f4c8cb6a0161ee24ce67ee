@@ -1,0 +1,32 @@
+native/MuesliNative/Tests/MuesliTests/FocusPresentationTests.swift
+  s_18f34e0bf10978::t_81cf05de694cc9 177-231
+  s_18f34e0bf10978::t_dce4daacb818e1 134-143
+native/MuesliNative/Sources/MuesliNativeApp/FocusWindow.swift
+  s_18f34e0bf10978::t_e8bb0a2f939195 13-14
+  s_18f34e0bf10978::t_75484f91928e86 51-54,58-64
+native/MuesliNative/Sources/MuesliNativeApp/FocusRootView.swift
+  s_18f34e0bf10978::t_8963bbbde74827 313-317,319-326,329-333
+  s_18f34e0bf10978::t_19b5b436f3d18e 347
+  s_18f34e0bf10978::t_b62b52d93a9c27 360-363
+  s_18f34e0bf10978::t_e856456ddb6839 262-263
+  s_18f34e0bf10978::t_8a7fe165c65076 207,224-236
+native/MuesliNative/Sources/MuesliNativeApp/FocusPresentation.swift
+  s_18f34e0bf10978::t_1066aa6ef7418f 102
+  s_18f34e0bf10978::t_ef3d12777c210b 30-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1a065834761e933394f4c8cb6a0161ee24ce67ee",
+  "prompts": {},
+  "sessions": {
+    "s_18f34e0bf10978": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1dea29d-5c40-4b71-a31f-eee5b26f83d2",
+        "model": "claude-fable-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
