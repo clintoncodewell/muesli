@@ -101,10 +101,30 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             button.image = MenuBarIconRenderer.make(choice: controller.config.menuBarIcon)
             button.imageScaling = .scaleProportionallyDown
             button.toolTip = AppIdentity.displayName
+            // fork: left-click opens the app; the menu is right-click / ctrl-click only.
+            // statusItem.menu stays nil — assigning it would make every click open the menu.
+            button.target = self
+            button.action = #selector(statusItemClicked)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         rebuildMenu()
         updateMenuBarTitle()
-        statusItem.menu = menu
+    }
+
+    @objc private func statusItemClicked() {
+        let event = NSApp.currentEvent
+        let isRightClick = event?.type == .rightMouseUp
+            || (event?.modifierFlags.contains(.control) ?? false)
+        if isRightClick {
+            // Attach the menu just long enough for this click, then detach so the
+            // next left-click goes back to the action instead of the menu.
+            rebuildMenu()
+            statusItem.menu = menu
+            statusItem.button?.performClick(nil)
+            statusItem.menu = nil
+        } else {
+            controller.openHistoryWindow()
+        }
     }
 
     private func rebuildMenu() {
