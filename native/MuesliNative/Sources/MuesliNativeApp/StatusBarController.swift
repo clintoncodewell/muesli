@@ -109,6 +109,29 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
         rebuildMenu()
         updateMenuBarTitle()
+        captureScreenIfRequested()
+    }
+
+    // fork: dev-only screen capture using THIS app's existing Screen Recording grant, for
+    // headless visual QA over ssh (plain `screencapture` from an ssh session is TCC-blocked
+    // and silently produces black frames). Env-gated; no-op in normal launches. Never fires
+    // during a meeting: CGWindowListCreateImage conflicts with an active SCStream.
+    private func captureScreenIfRequested() {
+        guard let path = ProcessInfo.processInfo.environment["MUESLI_CAPTURE_SCREEN_TO"] else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard self?.controller.appState.isMeetingRecording != true else { return }
+            guard let image = CGWindowListCreateImage(
+                .infinite, .optionOnScreenOnly, kCGNullWindowID, [.bestResolution]
+            ) else {
+                fputs("[dev-capture] CGWindowListCreateImage returned nil\n", stderr)
+                return
+            }
+            let rep = NSBitmapImageRep(cgImage: image)
+            if let data = rep.representation(using: .png, properties: [:]) {
+                try? data.write(to: URL(fileURLWithPath: path))
+                fputs("[dev-capture] wrote \(path)\n", stderr)
+            }
+        }
     }
 
     @objc private func statusItemClicked() {
