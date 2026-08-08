@@ -27,6 +27,61 @@ struct FocusUpcomingLine: Equatable {
     let isJoinable: Bool         // show Join & Record only when there is a meeting URL
 }
 
+/// Debounced, conflict-aware autosave for the live manual-notes pad.
+///
+/// The naive shape — write the whole draft to the store on every keystroke — has two failure
+/// modes: database churn at typing speed, and the lost-update where a draft initialised once
+/// blindly overwrites an edit made in the full dashboard. This session writes at most once per
+/// debounce interval, flushes on lifecycle boundaries (back, stop, disappear), and adopts an
+/// external change instead of clobbering it whenever the local draft has no unsaved edits.
+@MainActor
+final class FocusNotesAutosave {
+    private(set) var draft: String
+    private(set) var lastSaved: String
+    private let save: (String) -> Void
+    private let debounce: Duration
+    private var pending: Task<Void, Never>?
+
+    var isDirty: Bool { draft != lastSaved }
+
+    init(initial: String, debounce: Duration = .milliseconds(400), save: @escaping (String) -> Void) {
+        self.draft = initial
+        self.lastSaved = initial
+        self.debounce = debounce
+        self.save = save
+    }
+
+    /// The user typed. Schedule a save; earlier pending saves are superseded.
+    func update(_ text: String) {
+        guard text != draft else { return }
+        draft = text
+        pending?.cancel()
+        pending = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: debounce)
+            guard !Task.isCancelled else { return }
+            self.flush()
+        }
+    }
+
+    /// Write now if there is anything unsaved. Call on back / stop / disappear.
+    func flush() {
+        pending?.cancel()
+        pending = nil
+        guard isDirty else { return }
+        lastSaved = draft
+        save(draft)
+    }
+
+    /// The record changed underneath us (edited in the dashboard, or refreshed from the store).
+    /// Adopt it only when we have nothing unsaved — a dirty local draft wins until it flushes.
+    func syncExternal(_ text: String) {
+        guard !isDirty, text != draft else { return }
+        draft = text
+        lastSaved = text
+    }
+}
+
 enum FocusPresentation {
 
     // MARK: - Meeting list
@@ -44,6 +99,7 @@ enum FocusPresentation {
                 guard !trimmedQuery.isEmpty else { return true }
                 return meeting.title.lowercased().contains(trimmedQuery)
                     || meeting.formattedNotes.lowercased().contains(trimmedQuery)
+                    || meeting.manualNotes.lowercased().contains(trimmedQuery)
             }
             .sorted { startDate($0) > startDate($1) }
 

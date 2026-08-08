@@ -131,6 +131,16 @@ struct FocusPresentationTests {
         #expect(preview.count < 100)
     }
 
+    @Test("search matches manual notes too, since they can supply the visible preview")
+    func searchIncludesManualNotes() {
+        let meetings = [
+            record(id: 1, title: "1:1", start: "2026-08-08T08:00:00Z", manualNotes: "ask about the Zurich office"),
+            record(id: 2, title: "Sync", start: "2026-08-08T09:00:00Z"),
+        ]
+        let groups = FocusPresentation.dayGroups(from: meetings, query: "zurich")
+        #expect(groups.flatMap(\.items).map(\.id) == [1])
+    }
+
     // MARK: - Upcoming line
 
     @Test("upcoming line picks the active event over a later one and labels it Now")
@@ -162,6 +172,61 @@ struct FocusPresentationTests {
             now: now
         )
         #expect(line == nil)
+    }
+
+    // MARK: - Autosave session
+
+    @Test("autosave writes once per debounce window, not per keystroke")
+    @MainActor
+    func autosaveDebounces() async throws {
+        var saves: [String] = []
+        let session = FocusNotesAutosave(initial: "", debounce: .milliseconds(40)) { saves.append($0) }
+
+        session.update("h")
+        session.update("he")
+        session.update("hello")
+        #expect(saves.isEmpty)   // nothing written at typing speed
+
+        try await Task.sleep(for: .milliseconds(160))
+        #expect(saves == ["hello"])
+        #expect(!session.isDirty)
+    }
+
+    @Test("flush writes a dirty draft immediately and is a no-op when clean")
+    @MainActor
+    func autosaveFlush() {
+        var saves: [String] = []
+        let session = FocusNotesAutosave(initial: "start", debounce: .seconds(60)) { saves.append($0) }
+
+        session.flush()
+        #expect(saves.isEmpty)
+
+        session.update("start amended")
+        session.flush()
+        #expect(saves == ["start amended"])
+
+        session.flush()
+        #expect(saves == ["start amended"])   // still once
+    }
+
+    @Test("an external change is adopted when clean but never clobbers unsaved edits")
+    @MainActor
+    func autosaveExternalSync() {
+        var saves: [String] = []
+        let session = FocusNotesAutosave(initial: "original", debounce: .seconds(60)) { saves.append($0) }
+
+        // Clean: adopt the dashboard's edit.
+        session.syncExternal("edited in dashboard")
+        #expect(session.draft == "edited in dashboard")
+        #expect(!session.isDirty)
+
+        // Dirty: the local draft wins until it flushes.
+        session.update("local unsaved edit")
+        session.syncExternal("another dashboard edit")
+        #expect(session.draft == "local unsaved edit")
+
+        session.flush()
+        #expect(saves == ["local unsaved edit"])
     }
 
     @Test("an event with no meeting link shows but is not joinable")

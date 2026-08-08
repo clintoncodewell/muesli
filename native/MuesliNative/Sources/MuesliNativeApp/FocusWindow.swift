@@ -10,6 +10,8 @@ final class FocusWindowController: NSObject, NSWindowDelegate {
     private let controller: MuesliController
     private var window: NSWindow?
 
+    var owner: MuesliController { controller }
+
     init(controller: MuesliController) {
         self.controller = controller
     }
@@ -46,16 +48,20 @@ final class FocusWindowController: NSObject, NSWindowDelegate {
 // Zero-edit hook: MuesliController gains the focus window without touching its own
 // (upstream) file, keeping the daily merge conflict-light.
 extension MuesliController {
-    private static var focusWindowControllers: [ObjectIdentifier: FocusWindowController] = [:]
+    // One shared instance, not a registry: the app has exactly one MuesliController for the
+    // life of the process. If a second controller ever calls this, last-one-wins — the stale
+    // window controller (and its retained controller) is released rather than leaked.
+    private static var sharedFocusWindowController: FocusWindowController?
 
     @MainActor
     func openFocusWindow() {
-        let key = ObjectIdentifier(self)
-        let windowController = Self.focusWindowControllers[key] ?? {
-            let created = FocusWindowController(controller: self)
-            Self.focusWindowControllers[key] = created
-            return created
-        }()
+        let windowController: FocusWindowController
+        if let existing = Self.sharedFocusWindowController, existing.owner === self {
+            windowController = existing
+        } else {
+            windowController = FocusWindowController(controller: self)
+            Self.sharedFocusWindowController = windowController
+        }
         windowController.show()
     }
 }

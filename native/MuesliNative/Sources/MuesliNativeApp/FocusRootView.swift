@@ -204,6 +204,7 @@ struct FocusNoteView: View {
 
     @State private var showTranscript = false
     @State private var manualNotesDraft = ""
+    @State private var autosave: FocusNotesAutosave?
     @State private var copied = false
 
     private var isLive: Bool {
@@ -220,7 +221,19 @@ struct FocusNoteView: View {
                 completedNote
             }
         }
-        .onAppear { manualNotesDraft = meeting.manualNotes }
+        .onAppear {
+            let session = FocusNotesAutosave(initial: meeting.manualNotes) { [weak controller] notes in
+                controller?.updateMeetingManualNotes(id: meeting.id, notes: notes)
+            }
+            autosave = session
+            manualNotesDraft = session.draft
+        }
+        .onChange(of: meeting.manualNotes) { _, external in
+            // The record refreshed underneath us; adopt it only if we have nothing unsaved.
+            autosave?.syncExternal(external)
+            if let autosave { manualNotesDraft = autosave.draft }
+        }
+        .onDisappear { autosave?.flush() }
     }
 
     private var noteHeader: some View {
@@ -246,6 +259,8 @@ struct FocusNoteView: View {
 
             if isLive {
                 Button("Stop") {
+                    // Flush before stopping so summarization sees the final draft.
+                    autosave?.flush()
                     controller.toggleMeetingRecording()
                 }
                 .buttonStyle(.plain)
@@ -295,22 +310,27 @@ struct FocusNoteView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(MuesliTheme.spacing24)
             }
-        } else if meeting.formattedNotes.isEmpty {
-            VStack(spacing: MuesliTheme.spacing8) {
-                Text(meeting.status == .processing ? "Transcribing…" : "No notes for this meeting yet.")
-                    .font(MuesliTheme.callout())
+        } else if meeting.formattedNotes.isEmpty, !meeting.manualNotes.isEmpty {
+            // The user's own notes are content, not an empty state.
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Your notes")
+                    .font(MuesliTheme.caption())
                     .foregroundStyle(MuesliTheme.textTertiary)
-                if !meeting.manualNotes.isEmpty {
-                    ScrollView {
-                        Text(meeting.manualNotes)
-                            .font(MuesliTheme.body())
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(MuesliTheme.spacing24)
-                    }
+                    .padding(.horizontal, MuesliTheme.spacing24)
+                    .padding(.top, MuesliTheme.spacing12)
+                ScrollView {
+                    Text(meeting.manualNotes)
+                        .font(MuesliTheme.body())
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(MuesliTheme.spacing24)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if meeting.formattedNotes.isEmpty {
+            Text(meeting.status == .processing ? "Transcribing…" : "No notes for this meeting yet.")
+                .font(MuesliTheme.callout())
+                .foregroundStyle(MuesliTheme.textTertiary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             MeetingNotesView(markdown: meeting.formattedNotes)
         }
@@ -324,7 +344,7 @@ struct FocusNoteView: View {
                 .scrollContentBackground(.hidden)
                 .padding(MuesliTheme.spacing16)
                 .onChange(of: manualNotesDraft) { _, newValue in
-                    controller.updateMeetingManualNotes(id: meeting.id, notes: newValue)
+                    autosave?.update(newValue)
                 }
             Text("Type anything — Muesli is listening and will turn this into full notes when you stop.")
                 .font(MuesliTheme.caption())
@@ -337,7 +357,10 @@ struct FocusNoteView: View {
     private func copyNotes() {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        let content = meeting.formattedNotes.isEmpty ? meeting.rawTranscript : meeting.formattedNotes
+        // Match what the button says and what the view shows: notes first, the user's own
+        // notes next, transcript only as the last resort.
+        let content = [meeting.formattedNotes, meeting.manualNotes, meeting.rawTranscript]
+            .first { !$0.isEmpty } ?? ""
         pasteboard.setString(content, forType: .string)
         copied = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { copied = false }
