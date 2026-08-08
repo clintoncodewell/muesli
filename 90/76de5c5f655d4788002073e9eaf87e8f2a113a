@@ -1,0 +1,23 @@
+native/MuesliNative/Sources/MuesliNativeApp/StatusBarController.swift
+  s_18f34e0bf10978::t_c7fa1240f482ec 112
+native/MuesliNative/Sources/MuesliNativeApp/FocusRootView.swift
+  s_18f34e0bf10978::t_345fdf24976f5e 12-14
+native/MuesliNative/Sources/MuesliNativeApp/FocusWindow.swift
+  s_18f34e0bf10978::t_5e8a1813eb12e1 56-66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "9076de5c5f655d4788002073e9eaf87e8f2a113a",
+  "prompts": {},
+  "sessions": {
+    "s_18f34e0bf10978": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1dea29d-5c40-4b71-a31f-eee5b26f83d2",
+        "model": "claude-fable-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
