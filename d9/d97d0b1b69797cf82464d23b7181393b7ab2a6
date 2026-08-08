@@ -1,0 +1,19 @@
+native/MuesliNative/Sources/MuesliNativeApp/StatusBarController.swift
+  s_18f34e0bf10978::t_8e5b24e89b73a4 104-108,112-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d9d97d0b1b69797cf82464d23b7181393b7ab2a6",
+  "prompts": {},
+  "sessions": {
+    "s_18f34e0bf10978": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1dea29d-5c40-4b71-a31f-eee5b26f83d2",
+        "model": "claude-fable-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
