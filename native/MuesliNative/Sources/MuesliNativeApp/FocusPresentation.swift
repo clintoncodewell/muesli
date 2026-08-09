@@ -134,10 +134,20 @@ enum FocusPresentation {
         case .failed: return "Transcription failed"
         case .noteOnly, .completed: break
         }
+        // Skip heading lines: every generated note opens with "# Meeting Summary", so taking
+        // the first non-empty line put that ceremony on every row instead of actual content.
+        var firstHeading: String?
         for raw in meeting.formattedNotes.components(separatedBy: .newlines) {
+            let trimmed = raw.trimmingCharacters(in: .whitespaces)
             let stripped = strippedMarkdownLine(raw)
-            if !stripped.isEmpty { return truncate(stripped) }
+            if stripped.isEmpty { continue }
+            if trimmed.hasPrefix("#") {
+                if firstHeading == nil { firstHeading = stripped }
+                continue
+            }
+            return truncate(stripped)
         }
+        if let firstHeading { return truncate(firstHeading) }   // notes were headings only
         for raw in meeting.manualNotes.components(separatedBy: .newlines) {
             let stripped = strippedMarkdownLine(raw)
             if !stripped.isEmpty { return truncate(stripped) }

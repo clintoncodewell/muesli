@@ -97,13 +97,17 @@ struct FocusPresentationTests {
 
     @Test("preview prefers first content line of notes, stripped of markdown")
     func previewFromNotes() {
+        // Headings are content-free ceremony — every generated note opens with
+        // "# Meeting Summary" — so the preview must skip them for actual content.
         let meeting = record(
             id: 1, start: "2026-08-08T08:00:00Z",
-            notes: "\n# Meeting Notes\n\n- **Decision**: ship it\n"
+            notes: "\n# Meeting Summary\n\n- **Decision**: ship it\n"
         )
-        // The heading is content-free ceremony; but it IS the first non-empty line.
-        // What matters: markdown syntax never leaks into the preview.
-        #expect(FocusPresentation.preview(for: meeting) == "Meeting Notes")
+        #expect(FocusPresentation.preview(for: meeting) == "Decision: ship it")
+
+        // Notes that are headings only still produce something rather than nothing.
+        let headingsOnly = record(id: 2, start: "2026-08-08T08:00:00Z", notes: "# Meeting Summary\n## Topics\n")
+        #expect(FocusPresentation.preview(for: headingsOnly) == "Meeting Summary")
     }
 
     @Test("preview falls back to transcript speech without timestamps or speaker labels")
