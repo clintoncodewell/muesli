@@ -1,0 +1,28 @@
+native/MuesliNative/Sources/MuesliNativeApp/FocusWindow.swift
+  s_18f34e0bf10978::t_a02bdb2ed12e83 68
+native/MuesliNative/Sources/MuesliNativeApp/FocusRootView.swift
+  s_18f34e0bf10978::t_354fde15dcc6c7 63-82,86,91
+  s_18f34e0bf10978::t_faa3e4c4a80aeb 211,306
+native/MuesliNative/Sources/MuesliNativeApp/MuesliController.swift
+  s_18f34e0bf10978::t_e076723b7b9516 3734-3735
+native/MuesliNative/Tests/MuesliTests/FocusPresentationTests.swift
+  s_18f34e0bf10978::t_4877d108a9e5e2 194-199
+native/MuesliNative/Sources/MuesliNativeApp/StatusBarController.swift
+  s_18f34e0bf10978::t_0070db399193ed 136-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "59a3f62c71fc6f70268c4e0f98e046f68ef7b74d",
+  "prompts": {},
+  "sessions": {
+    "s_18f34e0bf10978": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1dea29d-5c40-4b71-a31f-eee5b26f83d2",
+        "model": "claude-fable-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
