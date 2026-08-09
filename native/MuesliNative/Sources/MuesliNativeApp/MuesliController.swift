@@ -3328,6 +3328,9 @@ final class MuesliController: NSObject {
     // MARK: - Onboarding
 
     func showOnboarding(resumeFrom progress: OnboardingProgress? = nil) {
+        // fork: dev-only, for headless visual QA in permissionless lanes — screenshots don't
+        // need a microphone, and each TCC prompt needs a human at the Mac.
+        guard ProcessInfo.processInfo.environment["MUESLI_SKIP_ONBOARDING_UI"] != "1" else { return }
         let wc = OnboardingWindowController(controller: self, resumeProgress: progress)
         self.onboardingWindowController = wc
         wc.show()
