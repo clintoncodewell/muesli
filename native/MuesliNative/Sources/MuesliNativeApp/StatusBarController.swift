@@ -117,12 +117,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let isRightClick = event?.type == .rightMouseUp
             || (event?.modifierFlags.contains(.control) ?? false)
         if isRightClick {
-            // Attach the menu just long enough for this click, then detach so the
-            // next left-click goes back to the action instead of the menu.
+            // Pop the menu directly instead of the attach/performClick/detach dance:
+            // once statusItem.menu has ever been assigned, macOS can keep treating every
+            // click as a menu click, which turned left-click back into a menu. This path
+            // never touches statusItem.menu, so left-click can never inherit it.
             rebuildMenu()
-            statusItem.menu = menu
-            statusItem.button?.performClick(nil)
-            statusItem.menu = nil
+            if let button = statusItem.button {
+                menu.popUp(
+                    positioning: nil,
+                    at: NSPoint(x: 0, y: button.bounds.height + 4),
+                    in: button
+                )
+            }
         } else if ForkSettings.focusUIEnabled {
             controller.openFocusWindow()
         } else {

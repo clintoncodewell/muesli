@@ -199,6 +199,10 @@ struct FocusPresentationTests {
         }
         #expect(saves == ["hello"])
         #expect(!session.isDirty)
+
+        // A quiet period after the first save must not produce a duplicate.
+        try await Task.sleep(for: .milliseconds(120))
+        #expect(saves == ["hello"])
     }
 
     @Test("flush writes a dirty draft immediately and is a no-op when clean")
