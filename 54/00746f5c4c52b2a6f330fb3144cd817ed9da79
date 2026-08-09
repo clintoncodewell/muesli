@@ -1,0 +1,25 @@
+native/MuesliNative/Sources/MuesliNativeApp/FocusRootView.swift
+  s_18f34e0bf10978::t_f2ce29ce9c462e 16,35-43
+  s_18f34e0bf10978::t_c0552144983140 72-101,106-112,114-141,147-148
+native/MuesliNative/Sources/MuesliNativeApp/MuesliController.swift
+  s_18f34e0bf10978::t_450589438b0e1f 6756-6758
+native/MuesliNative/Sources/MuesliNativeApp/FocusWindow.swift
+  s_18f34e0bf10978::t_4a7aa86104e5e4 60,82-93
+  s_18f34e0bf10978::t_ff1d2fdbad2758 40-41,45,48-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "5400746f5c4c52b2a6f330fb3144cd817ed9da79",
+  "prompts": {},
+  "sessions": {
+    "s_18f34e0bf10978": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1dea29d-5c40-4b71-a31f-eee5b26f83d2",
+        "model": "claude-fable-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
