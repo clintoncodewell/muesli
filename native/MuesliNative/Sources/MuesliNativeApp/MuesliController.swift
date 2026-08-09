@@ -6753,6 +6753,9 @@ final class MuesliController: NSObject {
     }
 
     private func showMeetingCompletionNotification(_ notification: PendingMeetingCompletionNotification) {
+        // fork: with the Focus UI on, the live note stays open through stop -> transcribe ->
+        // notes, so a "Transcription complete / View Notes" popup is duplicate noise.
+        guard !ForkSettings.focusUIEnabled else { return }
         meetingNotification.show(
             title: "Transcription complete",
             subtitle: notification.title,

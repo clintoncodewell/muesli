@@ -37,11 +37,26 @@ final class FocusWindowController: NSObject, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.setContentSize(NSSize(width: 700, height: 780))
-        window.minSize = NSSize(width: 480, height: 480)
+        // Narrow enough to live as a strip down the edge of the screen.
+        window.minSize = NSSize(width: 280, height: 420)
         window.isReleasedWhenClosed = false
         window.center()
         window.delegate = self
+        window.level = Self.isPinned ? .floating : .normal
         self.window = window
+    }
+
+    // MARK: - Pin (always on top)
+
+    private static let pinnedDefaultsKey = "fork.focus.windowPinned"
+
+    static var isPinned: Bool {
+        UserDefaults.standard.bool(forKey: pinnedDefaultsKey)
+    }
+
+    func setPinned(_ pinned: Bool) {
+        UserDefaults.standard.set(pinned, forKey: Self.pinnedDefaultsKey)
+        window?.level = pinned ? .floating : .normal
     }
 }
 
@@ -61,6 +76,18 @@ extension MuesliController {
         guard ProcessInfo.processInfo.environment["MUESLI_OPEN_FOCUS"] == "1" else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.openFocusWindow()
+        }
+    }
+
+    @MainActor
+    var isFocusWindowPinned: Bool { FocusWindowController.isPinned }
+
+    @MainActor
+    func setFocusWindowPinned(_ pinned: Bool) {
+        Self.sharedFocusWindowController?.setPinned(pinned)
+        // Persist even if the window hasn't been built yet this launch.
+        if Self.sharedFocusWindowController == nil {
+            UserDefaults.standard.set(pinned, forKey: "fork.focus.windowPinned")
         }
     }
 

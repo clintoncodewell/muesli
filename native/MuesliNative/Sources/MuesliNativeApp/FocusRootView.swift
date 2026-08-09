@@ -13,6 +13,7 @@ struct FocusRootView: View {
     @State private var selectedMeetingID: Int64? =
         ProcessInfo.processInfo.environment["MUESLI_FOCUS_SELECT"].flatMap(Int64.init)
     @State private var searchQuery = ""
+    @State private var isPinned = false
 
     var body: some View {
         Group {
@@ -31,6 +32,15 @@ struct FocusRootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(MuesliTheme.backgroundBase)
         .preferredColorScheme(appState.config.darkMode ? .dark : .light)
+        .onAppear { isPinned = controller.isFocusWindowPinned }
+        // One window, one surface: when a recording starts (Record button, Join & Record,
+        // or the detection prompt) this window becomes the live note; when it ends we stay
+        // on the note as it turns into the transcript and notes — no popups, no second window.
+        .onChange(of: appState.isMeetingRecording) { _, recording in
+            if recording, let active = controller.activeLiveMeetingRecord() {
+                selectedMeetingID = active.id
+            }
+        }
     }
 
     // MARK: - Home
@@ -59,40 +69,83 @@ struct FocusRootView: View {
             TextField("Search meetings", text: $searchQuery)
                 .textFieldStyle(.plain)
                 .font(MuesliTheme.callout())
-            Spacer()
-            if !appState.isMeetingRecording, !appState.isMeetingStarting {
-                Button {
-                    controller.toggleMeetingRecording()
-                } label: {
-                    HStack(spacing: 5) {
-                        Circle().fill(Color.red).frame(width: 7, height: 7)
+                .frame(minWidth: 60)
+            Spacer(minLength: MuesliTheme.spacing8)
+            // The controls collapse to icons when the window is narrowed into a side strip.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: MuesliTheme.spacing8) {
+                    recordButton(compact: false)
+                    pinButton
+                    fullConsoleButton(compact: false)
+                }
+                HStack(spacing: MuesliTheme.spacing8) {
+                    recordButton(compact: true)
+                    pinButton
+                    fullConsoleButton(compact: true)
+                }
+            }
+        }
+        .padding(.horizontal, MuesliTheme.spacing16)
+        .padding(.top, MuesliTheme.spacing16)
+        .padding(.bottom, MuesliTheme.spacing12)
+    }
+
+    @ViewBuilder
+    private func recordButton(compact: Bool) -> some View {
+        if !appState.isMeetingRecording, !appState.isMeetingStarting {
+            Button {
+                controller.toggleMeetingRecording()
+            } label: {
+                HStack(spacing: 5) {
+                    Circle().fill(Color.red).frame(width: 7, height: 7)
+                    if !compact {
                         Text("Record")
                             .font(MuesliTheme.callout())
                     }
-                    .foregroundStyle(MuesliTheme.textPrimary)
-                    .padding(.horizontal, MuesliTheme.spacing12)
-                    .padding(.vertical, 5)
-                    .background(MuesliTheme.backgroundRaised)
-                    .clipShape(Capsule())
-                    .overlay(Capsule().strokeBorder(MuesliTheme.surfaceBorder, lineWidth: 1))
-                    .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
-                .help("Start a meeting recording now")
+                .foregroundStyle(MuesliTheme.textPrimary)
+                .padding(.horizontal, compact ? 8 : MuesliTheme.spacing12)
+                .padding(.vertical, 5)
+                .background(MuesliTheme.backgroundRaised)
+                .clipShape(Capsule())
+                .overlay(Capsule().strokeBorder(MuesliTheme.surfaceBorder, lineWidth: 1))
+                .contentShape(Capsule())
             }
-            Button {
-                controller.openHistoryWindow()
-            } label: {
+            .buttonStyle(.plain)
+            .help("Start a meeting recording now")
+        }
+    }
+
+    private var pinButton: some View {
+        Button {
+            isPinned.toggle()
+            controller.setFocusWindowPinned(isPinned)
+        } label: {
+            Image(systemName: isPinned ? "pin.fill" : "pin")
+                .font(.system(size: 11))
+                .foregroundStyle(isPinned ? MuesliTheme.accent : MuesliTheme.textTertiary)
+        }
+        .buttonStyle(.plain)
+        .help(isPinned ? "Unpin from top" : "Keep this window on top")
+    }
+
+    @ViewBuilder
+    private func fullConsoleButton(compact: Bool) -> some View {
+        Button {
+            controller.openHistoryWindow()
+        } label: {
+            if compact {
+                Image(systemName: "macwindow.on.rectangle")
+                    .font(.system(size: 11))
+                    .foregroundStyle(MuesliTheme.textTertiary)
+            } else {
                 Text("Full Console")
                     .font(MuesliTheme.caption())
                     .foregroundStyle(MuesliTheme.textTertiary)
             }
-            .buttonStyle(.plain)
-            .help("Open the full Muesli app")
         }
-        .padding(.horizontal, MuesliTheme.spacing24)
-        .padding(.top, MuesliTheme.spacing16)
-        .padding(.bottom, MuesliTheme.spacing12)
+        .buttonStyle(.plain)
+        .help("Open the full Muesli app")
     }
 
     private func upcomingRow(_ line: FocusUpcomingLine) -> some View {
