@@ -1,0 +1,19 @@
+native/MuesliNative/Sources/MuesliNativeApp/MuesliController.swift
+  s_18f34e0bf10978::t_f917d41dffc917 3331-3333
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e410aec4d24dec4927bec55068cf35c616f7ed1a",
+  "prompts": {},
+  "sessions": {
+    "s_18f34e0bf10978": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1dea29d-5c40-4b71-a31f-eee5b26f83d2",
+        "model": "claude-fable-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
