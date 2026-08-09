@@ -109,6 +109,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         }
         rebuildMenu()
         updateMenuBarTitle()
+        controller.openFocusWindowAtLaunchIfRequested()   // fork: dev-only, env-gated
         captureScreenIfRequested()
     }
 
@@ -139,12 +140,20 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let isRightClick = event?.type == .rightMouseUp
             || (event?.modifierFlags.contains(.control) ?? false)
         if isRightClick {
-            // Attach the menu just long enough for this click, then detach so the
-            // next left-click goes back to the action instead of the menu.
+            // Pop the menu directly instead of the attach/performClick/detach dance:
+            // once statusItem.menu has ever been assigned, macOS can keep treating every
+            // click as a menu click, which turned left-click back into a menu. This path
+            // never touches statusItem.menu, so left-click can never inherit it.
             rebuildMenu()
-            statusItem.menu = menu
-            statusItem.button?.performClick(nil)
-            statusItem.menu = nil
+            if let button = statusItem.button {
+                menu.popUp(
+                    positioning: nil,
+                    at: NSPoint(x: 0, y: button.bounds.height + 4),
+                    in: button
+                )
+            }
+        } else if ForkSettings.focusUIEnabled {
+            controller.openFocusWindow()
         } else {
             controller.openHistoryWindow()
         }
@@ -153,7 +162,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func rebuildMenu() {
         menu.removeAllItems()
 
-        menu.addItem(actionItem(title: "Open \(AppIdentity.displayName)", action: #selector(MuesliController.openHistoryWindow as (MuesliController) -> () -> Void)))
+        // fork: with the Focus UI on, left-click opens Focus, so the menu offers both
+        // surfaces — the minimal window and the full app ("Full Console").
+        if ForkSettings.focusUIEnabled {
+            menu.addItem(actionItem(title: "Open \(AppIdentity.displayName)", action: #selector(MuesliController.openFocusWindow)))
+            menu.addItem(actionItem(title: "Open Full Console", action: #selector(MuesliController.openHistoryWindow as (MuesliController) -> () -> Void)))
+        } else {
+            menu.addItem(actionItem(title: "Open \(AppIdentity.displayName)", action: #selector(MuesliController.openHistoryWindow as (MuesliController) -> () -> Void)))
+        }
         if controller.isMeetingRecording() {
             let pauseTitle = controller.isMeetingRecordingPaused() ? "Resume Meeting Recording" : "Pause Meeting Recording"
             menu.addItem(actionItem(title: pauseTitle, action: #selector(MuesliController.toggleMeetingRecordingPause)))

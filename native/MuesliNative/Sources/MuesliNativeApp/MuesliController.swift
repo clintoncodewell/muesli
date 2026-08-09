@@ -3328,6 +3328,12 @@ final class MuesliController: NSObject {
     // MARK: - Onboarding
 
     func showOnboarding(resumeFrom progress: OnboardingProgress? = nil) {
+        // fork: dev-only, for headless visual QA in permissionless lanes — screenshots don't
+        // need a microphone, and each TCC prompt needs a human at the Mac. Debug builds only,
+        // so a release binary never honors the variable.
+        #if DEBUG
+        guard ProcessInfo.processInfo.environment["MUESLI_SKIP_ONBOARDING_UI"] != "1" else { return }
+        #endif
         let wc = OnboardingWindowController(controller: self, resumeProgress: progress)
         self.onboardingWindowController = wc
         wc.show()
@@ -3728,6 +3734,10 @@ final class MuesliController: NSObject {
     }
 
     private func ensureBasicDictationPermissionsBeforeDashboard() -> Bool {
+        // fork: dev-only, see showOnboarding — permissionless QA lanes still get the dashboard.
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["MUESLI_SKIP_ONBOARDING_UI"] == "1" { return true }
+        #endif
         guard hasRequiredStartupPermissions(for: config.resolvedOnboardingUseCase) else {
             historyWindowController?.close()
             if let progress = OnboardingProgress.load() {
