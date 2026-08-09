@@ -3731,6 +3731,8 @@ final class MuesliController: NSObject {
     }
 
     private func ensureBasicDictationPermissionsBeforeDashboard() -> Bool {
+        // fork: dev-only, see showOnboarding — permissionless QA lanes still get the dashboard.
+        if ProcessInfo.processInfo.environment["MUESLI_SKIP_ONBOARDING_UI"] == "1" { return true }
         guard hasRequiredStartupPermissions(for: config.resolvedOnboardingUseCase) else {
             historyWindowController?.close()
             if let progress = OnboardingProgress.load() {

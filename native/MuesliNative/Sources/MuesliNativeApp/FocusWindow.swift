@@ -65,7 +65,7 @@ extension MuesliController {
     }
 
     @MainActor
-    func openFocusWindow() {
+    @objc func openFocusWindow() {
         let windowController: FocusWindowController
         if let existing = Self.sharedFocusWindowController, existing.owner === self {
             windowController = existing

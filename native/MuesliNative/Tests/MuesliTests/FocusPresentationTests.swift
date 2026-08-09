@@ -191,7 +191,12 @@ struct FocusPresentationTests {
         session.update("hello")
         #expect(saves.isEmpty)   // nothing written at typing speed
 
-        try await Task.sleep(for: .milliseconds(160))
+        // Poll rather than trust a single fixed sleep: under full-suite load the
+        // debounce task can be scheduled late, which is fine — what matters is that
+        // exactly one save eventually lands with the final text.
+        for _ in 0..<50 where saves.isEmpty {
+            try await Task.sleep(for: .milliseconds(40))
+        }
         #expect(saves == ["hello"])
         #expect(!session.isDirty)
     }

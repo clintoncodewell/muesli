@@ -133,7 +133,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func rebuildMenu() {
         menu.removeAllItems()
 
-        menu.addItem(actionItem(title: "Open \(AppIdentity.displayName)", action: #selector(MuesliController.openHistoryWindow as (MuesliController) -> () -> Void)))
+        // fork: with the Focus UI on, left-click opens Focus, so the menu offers both
+        // surfaces — the minimal window and the full app ("Full Console").
+        if ForkSettings.focusUIEnabled {
+            menu.addItem(actionItem(title: "Open \(AppIdentity.displayName)", action: #selector(MuesliController.openFocusWindow)))
+            menu.addItem(actionItem(title: "Open Full Console", action: #selector(MuesliController.openHistoryWindow as (MuesliController) -> () -> Void)))
+        } else {
+            menu.addItem(actionItem(title: "Open \(AppIdentity.displayName)", action: #selector(MuesliController.openHistoryWindow as (MuesliController) -> () -> Void)))
+        }
         if controller.isMeetingRecording() {
             let pauseTitle = controller.isMeetingRecordingPaused() ? "Resume Meeting Recording" : "Pause Meeting Recording"
             menu.addItem(actionItem(title: pauseTitle, action: #selector(MuesliController.toggleMeetingRecordingPause)))

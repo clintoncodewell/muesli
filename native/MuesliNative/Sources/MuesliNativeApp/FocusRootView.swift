@@ -60,15 +60,35 @@ struct FocusRootView: View {
                 .textFieldStyle(.plain)
                 .font(MuesliTheme.callout())
             Spacer()
+            if !appState.isMeetingRecording, !appState.isMeetingStarting {
+                Button {
+                    controller.toggleMeetingRecording()
+                } label: {
+                    HStack(spacing: 5) {
+                        Circle().fill(Color.red).frame(width: 7, height: 7)
+                        Text("Record")
+                            .font(MuesliTheme.callout())
+                    }
+                    .foregroundStyle(MuesliTheme.textPrimary)
+                    .padding(.horizontal, MuesliTheme.spacing12)
+                    .padding(.vertical, 5)
+                    .background(MuesliTheme.backgroundRaised)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().strokeBorder(MuesliTheme.surfaceBorder, lineWidth: 1))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Start a meeting recording now")
+            }
             Button {
                 controller.openHistoryWindow()
             } label: {
-                Text("Open Muesli")
+                Text("Full Console")
                     .font(MuesliTheme.caption())
                     .foregroundStyle(MuesliTheme.textTertiary)
             }
             .buttonStyle(.plain)
-            .help("Open the full Muesli window")
+            .help("Open the full Muesli app")
         }
         .padding(.horizontal, MuesliTheme.spacing24)
         .padding(.top, MuesliTheme.spacing16)
@@ -188,7 +208,7 @@ struct FocusRootView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button("Open in Muesli") {
+            Button("Open in Full Console") {
                 controller.showMeetingDocument(id: item.id)
                 controller.openHistoryWindow()
             }
@@ -283,7 +303,7 @@ struct FocusNoteView: View {
                     Button(showTranscript ? "Hide Transcript" : "Show Transcript") {
                         showTranscript.toggle()
                     }
-                    Button("Open in Muesli") {
+                    Button("Open in Full Console") {
                         controller.showMeetingDocument(id: meeting.id)
                         controller.openHistoryWindow()
                     }
