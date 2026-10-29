@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installStandardEditMenu()
+        MuesliFocus.install()
 
         let runtimeTelemetry = TelemetryRuntimeConfiguration.current()
         let telemetryConfig = TelemetryDeck.Config(appID: runtimeTelemetry.sdkAppID)
