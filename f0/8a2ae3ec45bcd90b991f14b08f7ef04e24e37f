@@ -1,0 +1,37 @@
+native/MuesliNative/Sources/MuesliNativeApp/AudioFileImportController.swift
+  s_a5fac6124096a2::t_fe536b2e5a8161 45
+native/MuesliNative/Sources/MuesliNativeApp/DictionaryView.swift
+  s_a5fac6124096a2::t_47c75fead556cb 213
+native/MuesliNative/Sources/MuesliNativeApp/MeetingExporter.swift
+  s_a5fac6124096a2::t_7a573b4a24fd37 186
+native/MuesliNative/Sources/MuesliNativeApp/SettingsView.swift
+  s_a5fac6124096a2::t_aa0c1cac39e31a 1941
+native/MuesliNative/Sources/MuesliNativeApp/SheetParent.swift
+  s_d4b88c4e8dca07::t_852b279e2c3306 1-26
+native/MuesliNative/Tests/MuesliTests/KeyablePanelTests.swift
+  s_a5fac6124096a2::t_e249de6a81d812 67-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f08a2ae3ec45bcd90b991f14b08f7ef04e24e37f",
+  "prompts": {},
+  "sessions": {
+    "s_a5fac6124096a2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ed06e47f-3e33-4f50-b4aa-067c73d24cc7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    },
+    "s_d4b88c4e8dca07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dc67494e-2cc1-4899-ab5e-9ab98edc35f4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
