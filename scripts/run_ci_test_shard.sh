@@ -24,6 +24,7 @@ case "${shard}" in
       ChatGPTAuthTests
       ChatGPTTokenStorageTests
       FloatingIndicatorVisibilityTests
+      FocusPresentationTests
       IndicatorFrameSizeTests
       OpenAILogoShapeTests
       MeetingChunkCollectorTests
@@ -84,6 +85,8 @@ case "${shard}" in
       MeetingFollowUpThreadTests
       MeetingFollowUpSummaryPromptTests
       MeetingSummaryClientTests
+      CoachEngineTests
+      CoachTranscriptStoreTests
       MeetingsNavigationTests
       MeetingBrowserLogicTests
       MeetingNotesInlineMarkdownTests

@@ -20,15 +20,8 @@ enum MeetingRecordingStartOrigin: Equatable {
         switch self {
         case .manual:
             return .none
-        case .detectedPrompt:
-            // The user saw a prompt and clicked Start, so this recording is wanted. Losing the
-            // signal usually means the incidental thing holding the mic went away, not that the
-            // meeting ended — and silently killing it produced ~60s recordings. Warn instead and
-            // let them decide.
-            return .warnOnly
-        case .calendarAutoRecord, .scheduledMeetingPrompt, .joinAndRecord:
-            // Started without the user asking, so ending it unattended is the safer default.
-            return .autoStopAfterWarning
+        case .detectedPrompt, .calendarAutoRecord, .scheduledMeetingPrompt, .joinAndRecord:
+            return .autoStopSilently
         }
     }
 
@@ -47,6 +40,7 @@ enum MeetingRecordingStartOrigin: Equatable {
 
 enum MeetingSignalLossResponse: Equatable {
     case none
+    case autoStopSilently
     case warnOnly
     case autoStopAfterWarning
 }
@@ -88,19 +82,24 @@ struct MeetingAutoStopSource: Equatable {
     let normalizedURL: String?
     let sourceBundleID: String?
     let hasObservedCandidate: Bool
+    /// Dedicated meeting apps can replace their detector session while the same call is active.
+    /// Browser candidates cannot use bundle continuity because another tab may own the mic.
+    let allowsBundleContinuity: Bool
 
     private init(
         candidateID: String?,
         suppressionID: String?,
         normalizedURL: String?,
         sourceBundleID: String?,
-        hasObservedCandidate: Bool
+        hasObservedCandidate: Bool,
+        allowsBundleContinuity: Bool
     ) {
         self.candidateID = candidateID
         self.suppressionID = suppressionID
         self.normalizedURL = normalizedURL
         self.sourceBundleID = sourceBundleID
         self.hasObservedCandidate = hasObservedCandidate
+        self.allowsBundleContinuity = allowsBundleContinuity
     }
 
     init(candidate: MeetingCandidate) {
@@ -109,6 +108,7 @@ struct MeetingAutoStopSource: Equatable {
         self.normalizedURL = candidate.url
         self.sourceBundleID = candidate.sourceBundleID
         self.hasObservedCandidate = true
+        self.allowsBundleContinuity = candidate.evidence.contains(.dedicatedApp)
     }
 
     init?(meetingURL: URL) {
@@ -120,6 +120,7 @@ struct MeetingAutoStopSource: Equatable {
         self.normalizedURL = normalized.url
         self.sourceBundleID = nil
         self.hasObservedCandidate = false
+        self.allowsBundleContinuity = false
     }
 
     func refined(with candidate: MeetingCandidate) -> MeetingAutoStopSource {
@@ -131,7 +132,8 @@ struct MeetingAutoStopSource: Equatable {
             suppressionID: refinedSuppressionID,
             normalizedURL: normalizedURL ?? candidate.url,
             sourceBundleID: sourceBundleID ?? candidate.sourceBundleID,
-            hasObservedCandidate: true
+            hasObservedCandidate: true,
+            allowsBundleContinuity: allowsBundleContinuity || candidate.evidence.contains(.dedicatedApp)
         )
     }
 }
@@ -198,6 +200,10 @@ struct MeetingAutoStopTracker: Equatable {
 }
 
 enum MeetingAutoStopPolicy {
+    /// Detector signals can disappear briefly during device handoff, camera changes, app updates,
+    /// or a Teams/Zoom session refresh. Keep teardown quiet, but require sustained absence.
+    static let signalLossGracePeriod: TimeInterval = 90
+
     static func matches(candidate: MeetingCandidate, source: MeetingAutoStopSource) -> Bool {
         if let candidateID = source.candidateID, candidate.id == candidateID {
             return true
@@ -208,6 +214,13 @@ enum MeetingAutoStopPolicy {
         }
 
         if let normalizedURL = source.normalizedURL, candidate.url == normalizedURL {
+            return true
+        }
+
+        if source.allowsBundleContinuity,
+           let sourceBundleID = source.sourceBundleID,
+           candidate.sourceBundleID == sourceBundleID,
+           candidate.evidence.contains(.dedicatedApp) {
             return true
         }
 

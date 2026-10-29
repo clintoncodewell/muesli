@@ -35,7 +35,7 @@ actor TranscriptionCoordinator {
     private static let defaultDiarizerLoadOperationTimeout: Duration = .seconds(300)
 
     static let explicitlyRoutedBackendIdentifiers: Set<String> = [
-        "whisper", "nemotron35", "qwen", "cohere", "indicasr", "sensevoice", "gemma4-litert",
+        "whisper", "nemotron35", "qwen", "qwen-api", "elevenlabs", "cohere", "indicasr", "sensevoice", "gemma4-litert",
     ]
 
     private let fluidTranscriber = FluidAudioTranscriber()
@@ -188,6 +188,10 @@ actor TranscriptionCoordinator {
         }
     }
 
+    func configureCloudTranscription(config: AppConfig) {
+        postProcessorConfig = config
+    }
+
     private struct PostProcPairLogEntry: Encodable {
         let ts: String
         let raw: String
@@ -288,6 +292,10 @@ actor TranscriptionCoordinator {
         try Task.checkCancellation()
 
         switch backend.backend {
+        case "elevenlabs", "qwen-api":
+            // Cloud backends have no local model to preload. Configuration is
+            // validated when a transcription request is made.
+            progress?(1.0, nil)
         case "fluidaudio":
             let version: AsrModelVersion = backend.model.contains("v2") ? .v2 : .v3
             try await fluidTranscriber.loadModels(version: version, progress: progress)
@@ -996,6 +1004,19 @@ actor TranscriptionCoordinator {
             return try await transcribeWithNemotron35(url: url)
         case "qwen":
             return try await transcribeWithQwen3(url: url)
+        case "qwen-api":
+            return try await OpenAICompatibleSpeechToTextClient().transcribe(
+                fileURL: url,
+                endpoint: postProcessorConfig.qwenASRAPIURL,
+                apiKey: ProcessInfo.processInfo.environment["QWEN_ASR_API_KEY"] ?? postProcessorConfig.qwenASRAPIKey,
+                model: backend.model
+            )
+        case "elevenlabs":
+            return try await ElevenLabsSpeechToTextClient().transcribe(
+                fileURL: url,
+                apiKey: ProcessInfo.processInfo.environment["ELEVENLABS_API_KEY"] ?? postProcessorConfig.elevenLabsAPIKey,
+                keyterms: cloudTranscriptionKeyterms()
+            )
         case "cohere":
             return try await transcribeWithCohere(url: url, language: cohereLanguage)
         case "indicasr":
@@ -1007,6 +1028,22 @@ actor TranscriptionCoordinator {
         default:
             return try await transcribeWithFluidAudio(url: url)
         }
+    }
+
+    private func cloudTranscriptionKeyterms() -> [String] {
+        var seen = Set<String>()
+        var terms = postProcessorConfig.customWords.compactMap { entry -> String? in
+            let term = (entry.replacement ?? entry.word).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard term.count >= 2, term.count <= 100 else { return nil }
+            let key = term.lowercased()
+            guard seen.insert(key).inserted else { return nil }
+            return term
+        }
+        for term in ForkKnowledgeVocabulary.keyterms(limit: 100 - terms.count) {
+            let key = term.lowercased()
+            if seen.insert(key).inserted { terms.append(term) }
+        }
+        return Array(terms.prefix(100))
     }
 
     // MARK: - FluidAudio (Parakeet on ANE)

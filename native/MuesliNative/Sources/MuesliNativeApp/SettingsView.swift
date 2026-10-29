@@ -800,6 +800,36 @@ struct SettingsView: View {
                 settingsRow("Indic language", controlWidth: meetingControlWidth) {
                     indicLanguageMenu
                 }
+            } else if appState.selectedMeetingTranscriptionBackend.backend == BackendOption.elevenLabsScribe.backend {
+                Divider().background(MuesliTheme.surfaceBorder)
+                settingsRow("ElevenLabs API key", controlWidth: meetingControlWidth) {
+                    PastableSecureField(
+                        text: appState.config.elevenLabsAPIKey,
+                        placeholder: "xi-...",
+                        onChange: { value in controller.updateConfig { $0.elevenLabsAPIKey = value } }
+                    )
+                    .frame(height: 22)
+                }
+                settingsDescription("Scribe uses your Muesli dictionary as keyterms and returns speaker-aware timestamps.")
+            } else if appState.selectedMeetingTranscriptionBackend.backend == BackendOption.qwen3Asr17B.backend {
+                Divider().background(MuesliTheme.surfaceBorder)
+                settingsRow("Qwen endpoint", controlWidth: meetingControlWidth) {
+                    PastableTextField(
+                        text: appState.config.qwenASRAPIURL,
+                        placeholder: "http://localhost:8000/v1/audio/transcriptions",
+                        onChange: { value in controller.updateConfig { $0.qwenASRAPIURL = value } }
+                    )
+                    .frame(height: 22)
+                }
+                Divider().background(MuesliTheme.surfaceBorder)
+                settingsRow("Qwen API key", controlWidth: meetingControlWidth) {
+                    PastableSecureField(
+                        text: appState.config.qwenASRAPIKey,
+                        placeholder: "Optional for local servers",
+                        onChange: { value in controller.updateConfig { $0.qwenASRAPIKey = value } }
+                    )
+                    .frame(height: 22)
+                }
             }
         }
     }
@@ -1337,7 +1367,7 @@ struct SettingsView: View {
                 settingsRow("Save meeting recording") {
                     settingsMenu(
                         selection: recordingSaveLabel(for: appState.config.meetingRecordingSavePolicy),
-                        options: MeetingRecordingSavePolicy.allCases.map(recordingSaveLabel(for:))
+                        options: [MeetingRecordingSavePolicy.never, .always].map(recordingSaveLabel(for:))
                     ) { label in
                         guard let policy = recordingSavePolicy(for: label) else { return }
                         controller.updateConfig { $0.meetingRecordingSavePolicy = policy }

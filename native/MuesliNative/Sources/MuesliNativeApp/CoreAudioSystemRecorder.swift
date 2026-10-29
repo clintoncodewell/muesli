@@ -639,6 +639,11 @@ final class CoreAudioSystemRecorder: SystemAudioCapturing, SystemAudioDiagnostic
     /// have time to respond before we fall back to Settings.
     @discardableResult
     static func requestSystemAudioAccess(timeout: Duration = .seconds(12)) async -> Bool {
+        // Never create a permission-triggering tap when TCC already allows capture.
+        // This matters after app relaunches and development rebuilds: the preflight
+        // is cheap and avoids presenting a redundant macOS recording prompt.
+        if checkSystemAudioPermission() { return true }
+
         let recorder = CoreAudioSystemRecorder()
         let pollInterval = Duration.milliseconds(300)
         do {

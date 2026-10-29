@@ -927,15 +927,17 @@ struct ModelsView: View {
                     .help(activationDisabledReason ?? actionTitle)
                 }
 
-                Button {
-                    modelToDelete = option
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.red.opacity(0.6))
-                        .frame(width: 20, height: 20)
+                if !option.isCloudTranscriptionBackend {
+                    Button {
+                        modelToDelete = option
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.red.opacity(0.6))
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             } else {
                 Button("Download") {
                     startDownload(option)
@@ -1535,6 +1537,8 @@ struct ModelsView: View {
     private func deleteModelFiles(_ option: BackendOption) async throws {
         let fm = FileManager.default
         switch option.backend {
+        case "elevenlabs", "qwen-api":
+            break
         case "whisper":
             WhisperKitTranscriber.deleteModel(option.model)
         case "nemotron35":
@@ -1613,6 +1617,8 @@ struct ModelsView: View {
 
     private func isModelDownloaded(_ option: BackendOption, fm: FileManager) -> Bool {
         switch option.backend {
+        case "elevenlabs", "qwen-api":
+            return true
         case "whisper":
             return WhisperKitTranscriber.isModelDownloaded(option.model)
         case "nemotron35":

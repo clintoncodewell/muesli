@@ -62,8 +62,8 @@ struct MeetingTranscriptHealthMonitorTests {
         }
     }
 
-    @Test("falls back when mic coverage is broadly poor")
-    func fallsBackWhenCoverageIsPoor() {
+    @Test("falls back to raw mic when AEC chunks are all empty")
+    func fallsBackWhenAECChunksAreEmpty() {
         let mic: [SpeechSegment] = []
         let offline = [
             VadSegment(startTime: 0.0, endTime: 4.0),
@@ -75,8 +75,8 @@ struct MeetingTranscriptHealthMonitorTests {
             offlineSpeechSegments: offline,
             chunkHealth: MeetingTranscriptChunkHealthSnapshot(
                 successfulChunkCount: 0,
-                emptyChunkCount: 0,
-                failedChunkCount: 3
+                emptyChunkCount: 13,
+                failedChunkCount: 0
             )
         )
 

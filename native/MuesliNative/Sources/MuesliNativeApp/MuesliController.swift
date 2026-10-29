@@ -414,7 +414,7 @@ final class MuesliController: NSObject {
     private var activeMeetingAutoStop = MeetingAutoStopTracker()
     private var activeMeetingSignalLossResponse: MeetingSignalLossResponse = .none
     private var meetingSignalLossPromptState = MeetingSignalLossPromptState()
-    private let meetingAutoStopGracePeriod: TimeInterval = 20
+    private let meetingAutoStopGracePeriod = MeetingAutoStopPolicy.signalLossGracePeriod
     private var meetingActivity: NSObjectProtocol?
     private var isStoppingMeetingRecording = false
     private var isPresentingMeetingTerminationConfirmation = false
@@ -457,6 +457,12 @@ final class MuesliController: NSObject {
     ) {
         self.configStore = configStore
         var loadedConfig = configStore.load()
+        if loadedConfig.meetingRecordingSavePolicy == .prompt {
+            // Legacy "ask every time" interrupted every meeting teardown. The
+            // quiet lifecycle uses explicit Never/Always choices instead.
+            loadedConfig.meetingRecordingSavePolicy = .never
+            configStore.save(loadedConfig)
+        }
         let loadedBackend = BackendOption.all.first(where: {
             $0.backend == loadedConfig.sttBackend && $0.model == loadedConfig.sttModel
         }) ?? .whisper
@@ -741,8 +747,8 @@ final class MuesliController: NSObject {
                 guard let self else { return }
                 let includesMeetings = self.config.resolvedOnboardingUseCase.includesMeetings
                 let ppOption = self.runtimePostProcessorOption()
+                await self.configureTranscriptCleanupForRuntime(option: ppOption)
                 if #available(macOS 15, *) {
-                    await self.configureTranscriptCleanupForRuntime(option: ppOption)
                     await self.transcriptionCoordinator.setNemotron35PromptId(
                         self.config.resolvedNemotron35Language.promptId
                     )
@@ -1285,6 +1291,8 @@ final class MuesliController: NSObject {
         let previousEnableDictionaryCorrectionPrompts = config.enableDictionaryCorrectionPrompts
         let previousEnableLiveStreamingPartials = config.enableLiveStreamingPartials
         mutate(&config)
+        let cloudTranscriptionConfig = config
+        Task { await transcriptionCoordinator.configureCloudTranscription(config: cloudTranscriptionConfig) }
         if previousEnableLiveStreamingPartials, !config.enableLiveStreamingPartials {
             preparingMeetingSession?.stopStreamingPartials()
             activeMeetingSession?.stopStreamingPartials()
@@ -6505,9 +6513,7 @@ final class MuesliController: NSObject {
 
     @MainActor
     private func recordingSaveDecision(for result: MeetingSessionResult) async -> Bool? {
-        guard config.meetingRecordingSavePolicy == .prompt else { return nil }
-        guard result.retainedRecordingURL != nil, result.retainedRecordingError == nil else { return nil }
-        return await promptToSaveMeetingRecording(for: result.title)
+        nil
     }
 
     @MainActor
@@ -6579,7 +6585,12 @@ final class MuesliController: NSObject {
     }
 
     private func presentMeetingStartFailureAlert(error: Error) {
+        // Recorder failures also cover device/tap/format errors. Only point at
+        // System Settings when a fresh permission preflight actually fails;
+        // otherwise the old alert falsely told already-authorized users to
+        // enable recording again after every rebuild/restart.
         let isSystemAudioError = error is CoreAudioSystemRecorder.RecorderError
+            && !CoreAudioSystemRecorder.checkSystemAudioPermission()
         let alert = NSAlert()
         alert.alertStyle = .warning
         if isSystemAudioError {
@@ -6783,12 +6794,9 @@ final class MuesliController: NSObject {
     }
 
     private func enqueueOrShowMeetingCompletionNotification(meetingID: Int64?, title: String) {
-        let notification = PendingMeetingCompletionNotification(meetingID: meetingID, title: title)
-        guard canShowMeetingCompletionNotification else {
-            pendingMeetingCompletionNotification = notification
-            return
-        }
-        showMeetingCompletionNotification(notification)
+        // Completion is reflected in the meeting document/status UI. Do not
+        // interrupt the user after an unattended transcription finishes.
+        pendingMeetingCompletionNotification = nil
     }
 
     private func showPendingMeetingCompletionNotificationIfPossible() {
@@ -6807,30 +6815,12 @@ final class MuesliController: NSObject {
     }
 
     private func showMeetingCompletionNotification(_ notification: PendingMeetingCompletionNotification) {
-        // fork: with the Focus UI on, the live note stays open through stop -> transcribe ->
-        // notes, so a "Transcription complete / View Notes" popup is duplicate noise.
-        guard !ForkSettings.focusUIEnabled else { return }
-        meetingNotification.show(
-            title: "Transcription complete",
-            subtitle: notification.title,
-            actionLabel: "View Notes",
-            onStartRecording: { [weak self] in
-                guard let self else { return }
-                if let meetingID = notification.meetingID {
-                    self.showMeetingDocument(id: meetingID)
-                }
-                self.syncAppState()
-                self.historyWindowController?.show()
-            },
-            onClose: { [weak self] in
-                self?.showPendingMeetingCompletionNotificationIfPossible()
-            }
-        )
+        pendingMeetingCompletionNotification = nil
     }
 
     private func armMeetingAutoStop(
         source: MeetingAutoStopSource?,
-        response: MeetingSignalLossResponse = .autoStopAfterWarning
+        response: MeetingSignalLossResponse = .autoStopSilently
     ) {
         activeMeetingAutoStop.arm(source: source)
         activeMeetingSignalLossResponse = source == nil ? .none : response
@@ -6915,7 +6905,12 @@ final class MuesliController: NSObject {
             now: now,
             gracePeriod: meetingAutoStopGracePeriod
         ) {
-            presentMeetingSignalLossPromptIfNeeded()
+            // Granola-style lifecycle: once the detected meeting source has
+            // remained gone for the full grace period, stop quietly and let the
+            // existing background pipeline transcribe, diarize, and summarize.
+            // Manual recordings are never armed and remain user-controlled.
+            fputs("[meeting] auto-stopping after detected meeting source ended\n", stderr)
+            stopMeetingRecording()
         }
     }
 
@@ -8650,20 +8645,8 @@ final class MuesliController: NSObject {
     private func scheduleMeetingEndNotification(endDate: Date?, title: String) {
         meetingEndTimer?.invalidate()
         meetingEndTimer = nil
-
-        guard let endDate else { return }
-
-        let delay = endDate.timeIntervalSinceNow
-        guard delay > 0 else {
-            showMeetingEndNotification(title: title)
-            return
-        }
-
-        meetingEndTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-            DispatchQueue.main.async { [weak self] in
-                self?.showMeetingEndNotification(title: title)
-            }
-        }
+        // Calendar end times are estimates, not recording lifecycle signals.
+        // Meeting-source detection owns quiet auto-stop; no end-time popup.
     }
 
     private func showMeetingEndNotification(title: String) {
