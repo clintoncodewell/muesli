@@ -457,7 +457,8 @@ struct BackendCoverageTests {
     @Test("size labels are human-readable")
     func sizeLabelsReadable() {
         for option in BackendOption.all {
-            #expect(option.sizeLabel.contains("MB") || option.sizeLabel.contains("GB"),
+            // Cloud/API backends have no download, so their label names the transport instead of a size.
+            #expect(option.isCloudTranscriptionBackend || option.sizeLabel.contains("MB") || option.sizeLabel.contains("GB"),
                     "\(option.label) sizeLabel should contain MB or GB: \(option.sizeLabel)")
         }
     }
