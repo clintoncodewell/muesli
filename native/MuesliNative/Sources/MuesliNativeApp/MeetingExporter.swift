@@ -190,6 +190,8 @@ struct MeetingExporter {
             }
         } else {
             panel.begin { response in
+                // Out-of-process panels may not post willClose while key: hand focus back on Cancel.
+                if response != .OK { MainActor.assumeIsolated { FocusKit.scheduleHandBack() } }
                 guard response == .OK, let url = panel.url else { return }
                 onSave(url)
             }
