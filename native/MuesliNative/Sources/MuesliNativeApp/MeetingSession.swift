@@ -652,6 +652,29 @@ final class MeetingSession {
             return lhs.start < rhs.start
         }
 
+        if let rawStreamingMicURL {
+            let micRecovery = await repairMicSegmentsIfNeeded(
+                existingMicSegments: micSegments,
+                rawMicURL: rawStreamingMicURL,
+                meetingStart: meetingStart,
+                endTime: endTime
+            )
+            switch micRecovery {
+            case .none:
+                break
+            case .append(let repairedMicSegments):
+                micSegments.append(contentsOf: repairedMicSegments)
+            case .replace(let fallbackMicSegments):
+                micSegments = fallbackMicSegments
+            }
+            micSegments.sort { lhs, rhs in
+                if lhs.start == rhs.start {
+                    return lhs.text < rhs.text
+                }
+                return lhs.start < rhs.start
+            }
+        }
+
         if let systemAudioURL,
            Self.shouldAttemptSystemRecovery(
                usesUnifiedNemotronTranscript: usesUnifiedNemotronTranscript,
@@ -1154,6 +1177,113 @@ final class MeetingSession {
 
     private func durationSeconds(from start: Date, to end: Date) -> Double {
         max(end.timeIntervalSince(start), 0)
+    }
+
+    /// Chunk transcription consumes echo-cancelled mic audio. If AEC removes speech or chunking
+    /// otherwise misses it, compare the transcript against VAD on the untouched full-session mic
+    /// recording and repair from that source before formatting or summarization.
+    private func repairMicSegmentsIfNeeded(
+        existingMicSegments: [SpeechSegment],
+        rawMicURL: URL,
+        meetingStart: Date,
+        endTime: Date
+    ) async -> MeetingTranscriptRecoveryResult {
+        let totalDuration = durationSeconds(from: meetingStart, to: endTime)
+
+        guard let vadManager = await transcriptionCoordinator.getVadManager() else {
+            if existingMicSegments.isEmpty {
+                return .replace(await fallbackToFullSessionMicTranscription(
+                    rawMicURL: rawMicURL,
+                    meetingDuration: totalDuration
+                ))
+            }
+            return .none
+        }
+
+        do {
+            let samples = try AudioConverter().resampleAudioFile(rawMicURL)
+            let speechSegments = try await vadManager.segmentSpeech(
+                samples,
+                config: VadSegmentationConfig(maxSpeechDuration: 10.0, speechPadding: 0.15)
+            )
+            let health = MeetingTranscriptHealthMonitor.evaluate(
+                existingSegments: existingMicSegments,
+                offlineSpeechSegments: speechSegments,
+                chunkHealth: micChunkHealthTracker.snapshot()
+            )
+            fputs("[meeting] raw mic \(health.summaryLine.dropFirst("[meeting] ".count))\n", stderr)
+
+            switch health.action {
+            case .accept:
+                return .none
+            case .fullFallback(let reason):
+                fputs("[meeting] transcript health triggered full raw-mic fallback: \(reason)\n", stderr)
+                return .replace(await fallbackToFullSessionMicTranscription(
+                    rawMicURL: rawMicURL,
+                    meetingDuration: totalDuration
+                ))
+            case .selectiveRepair(let repairSegments):
+                guard !repairSegments.isEmpty else { return .none }
+                fputs("[meeting] repairing \(repairSegments.count) uncovered raw-mic speech regions\n", stderr)
+
+                var repairedSegments: [SpeechSegment] = []
+                for speechSegment in repairSegments {
+                    let startSample = max(0, speechSegment.startSample(sampleRate: VadManager.sampleRate))
+                    let endSample = min(samples.count, speechSegment.endSample(sampleRate: VadManager.sampleRate))
+                    guard endSample > startSample else { continue }
+
+                    let segmentURL = try MeetingMicRepairPlanner.writeTemporaryWAV(
+                        samples: Array(samples[startSample..<endSample])
+                    )
+                    defer { try? FileManager.default.removeItem(at: segmentURL) }
+
+                    let result = try await transcriptionCoordinator.transcribeMeeting(
+                        at: segmentURL,
+                        backend: currentBackend(),
+                        cohereLanguage: config.resolvedCohereLanguage,
+                        indicASRLanguage: config.resolvedIndicASRLanguage
+                    )
+                    repairedSegments.append(contentsOf: MicTurnNormalizer.normalize(
+                        result: result,
+                        startTime: speechSegment.startTime,
+                        endTime: speechSegment.endTime
+                    ))
+                }
+                return repairedSegments.isEmpty ? .none : .append(repairedSegments)
+            }
+        } catch {
+            fputs("[meeting] raw-mic repair pass failed: \(error)\n", stderr)
+            if existingMicSegments.isEmpty {
+                return .replace(await fallbackToFullSessionMicTranscription(
+                    rawMicURL: rawMicURL,
+                    meetingDuration: totalDuration
+                ))
+            }
+            return .none
+        }
+    }
+
+    private func fallbackToFullSessionMicTranscription(
+        rawMicURL: URL,
+        meetingDuration: Double
+    ) async -> [SpeechSegment] {
+        fputs("[meeting] no usable mic chunks, falling back to untouched full-session mic transcription\n", stderr)
+        do {
+            let result = try await transcriptionCoordinator.transcribeMeeting(
+                at: rawMicURL,
+                backend: currentBackend(),
+                cohereLanguage: config.resolvedCohereLanguage,
+                indicASRLanguage: config.resolvedIndicASRLanguage
+            )
+            return MicTurnNormalizer.normalize(
+                result: result,
+                startTime: 0,
+                endTime: meetingDuration
+            )
+        } catch {
+            fputs("[meeting] full-session raw-mic fallback transcription failed: \(error)\n", stderr)
+            return []
+        }
     }
 
     private func repairSystemSegmentsIfNeeded(

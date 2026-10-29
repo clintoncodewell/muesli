@@ -123,14 +123,32 @@ struct BackendOption: Equatable {
     static let qwen3Asr = BackendOption(
         backend: "qwen",
         model: "FluidInference/qwen3-asr-0.6b-coreml",
-        label: "Qwen3 ASR",
+        label: "Qwen3-ASR 0.6B",
         sizeLabel: "~1.3 GB",
         description: "Multilingual, 52 languages. Slower than Parakeet (~2-3s). First use takes ~30s to warm up.",
         recommended: false
     )
 
+    static let qwen3Asr17B = BackendOption(
+        backend: "qwen-api",
+        model: "Qwen/Qwen3-ASR-1.7B",
+        label: "Qwen3-ASR 1.7B",
+        sizeLabel: "API",
+        description: "Higher-accuracy Qwen3-ASR through an OpenAI-compatible transcription endpoint. Works with a local or hosted Qwen3-ASR server.",
+        recommended: false
+    )
+
+    static let elevenLabsScribe = BackendOption(
+        backend: "elevenlabs",
+        model: "scribe_v2",
+        label: "ElevenLabs Scribe v2",
+        sizeLabel: "Cloud",
+        description: "Cloud transcription with word timestamps, speaker diarization, and custom vocabulary keyterms.",
+        recommended: false
+    )
+
     static let experimental: [BackendOption] = [
-        .senseVoiceSmall, .qwen3Asr, .indicASR, .gemma4E2BLiteRT,
+        .senseVoiceSmall, .qwen3Asr, .qwen3Asr17B, .elevenLabsScribe, .indicASR, .gemma4E2BLiteRT,
     ]
 
     /// Native streaming backends used by low-latency product surfaces.
@@ -173,6 +191,10 @@ struct BackendOption: Equatable {
         !isStreamingDictationBackend
     }
 
+    var isCloudTranscriptionBackend: Bool {
+        backend == "elevenlabs" || backend == "qwen-api"
+    }
+
     static func resolveDownloaded(
         backend: String,
         model: String,
@@ -193,6 +215,8 @@ struct BackendOption: Equatable {
     var isDownloaded: Bool {
         let fm = FileManager.default
         switch backend {
+        case "elevenlabs", "qwen-api":
+            return true
         case "whisper":
             return WhisperKitTranscriber.isModelDownloaded(model)
         case "fluidaudio":
@@ -1016,6 +1040,9 @@ struct AppConfig: Codable {
     var indicatorOrigin: CGPointCodable? = nil
     var openAIAPIKey: String = ""
     var openRouterAPIKey: String = ""
+    var elevenLabsAPIKey: String = ""
+    var qwenASRAPIURL: String = "http://localhost:8000/v1/audio/transcriptions"
+    var qwenASRAPIKey: String = ""
     var openAIModel: String = ""
     var openRouterModel: String = ""
     var chatGPTModel: String = ""
@@ -1136,6 +1163,9 @@ struct AppConfig: Codable {
         case indicatorOrigin = "indicator_origin"
         case openAIAPIKey = "openai_api_key"
         case openRouterAPIKey = "openrouter_api_key"
+        case elevenLabsAPIKey = "elevenlabs_api_key"
+        case qwenASRAPIURL = "qwen_asr_api_url"
+        case qwenASRAPIKey = "qwen_asr_api_key"
         case openAIModel = "openai_model"
         case openRouterModel = "openrouter_model"
         case chatGPTModel = "chatgpt_model"
@@ -1289,6 +1319,9 @@ struct AppConfig: Codable {
         indicatorOrigin = try? c.decode(CGPointCodable.self, forKey: .indicatorOrigin)
         openAIAPIKey = (try? c.decode(String.self, forKey: .openAIAPIKey)) ?? defaults.openAIAPIKey
         openRouterAPIKey = (try? c.decode(String.self, forKey: .openRouterAPIKey)) ?? defaults.openRouterAPIKey
+        elevenLabsAPIKey = (try? c.decode(String.self, forKey: .elevenLabsAPIKey)) ?? defaults.elevenLabsAPIKey
+        qwenASRAPIURL = (try? c.decode(String.self, forKey: .qwenASRAPIURL)) ?? defaults.qwenASRAPIURL
+        qwenASRAPIKey = (try? c.decode(String.self, forKey: .qwenASRAPIKey)) ?? defaults.qwenASRAPIKey
         openAIModel = SummaryModelPreset.migratedFromGPT55(
             (try? c.decode(String.self, forKey: .openAIModel)) ?? defaults.openAIModel
         )

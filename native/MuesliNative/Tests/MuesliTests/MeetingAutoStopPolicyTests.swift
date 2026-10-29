@@ -70,6 +70,25 @@ struct MeetingAutoStopPolicyTests {
         #expect(!MeetingAutoStopPolicy.matches(candidate: otherTabAudio, source: source))
     }
 
+    @Test("keeps a dedicated meeting app active across detector session replacement")
+    func matchesDedicatedAppAcrossSessionReplacement() {
+        let source = MeetingAutoStopSource(candidate: teamsCandidate())
+        let replacement = MeetingCandidate(
+            id: "app:com.microsoft.teams2:session:1800000045",
+            platform: .teams,
+            appName: "Teams",
+            url: nil,
+            evidence: [.audioInputProcess, .dedicatedApp],
+            startedAt: Date(timeIntervalSince1970: 1_800_000_045),
+            meetingTitle: nil,
+            sourceBundleID: "com.microsoft.teams2",
+            sourcePID: 9876,
+            suppressionID: "app:com.microsoft.teams2:session:1800000045"
+        )
+
+        #expect(MeetingAutoStopPolicy.matches(candidate: replacement, source: source))
+    }
+
     @Test("ignores unrelated calendar-only activity")
     func ignoresUnrelatedCalendarOnlyActivity() {
         let source = MeetingAutoStopSource(candidate: googleMeetCandidate())
@@ -175,20 +194,17 @@ struct MeetingAutoStopPolicyTests {
         }
     }
 
-    @Test("only unattended start origins auto-stop on signal loss")
-    func onlyUnattendedStartOriginsAutoStopOnSignalLoss() {
-        // The user clicked Start on a detected prompt, so that recording is wanted. Losing the
-        // signal usually means the incidental mic holder went away, not that the meeting ended —
-        // silently stopping it produced ~60 second recordings. Warn, do not stop.
-        #expect(MeetingRecordingStartOrigin.detectedPrompt.signalLossResponse == .warnOnly)
+    @Test("all source-backed starts auto-stop quietly on signal loss")
+    func sourceBackedStartsAutoStopSilentlyOnSignalLoss() {
         #expect(MeetingRecordingStartOrigin.manual.signalLossResponse == .none)
 
-        for unattended in [
+        for sourceBacked in [
+            MeetingRecordingStartOrigin.detectedPrompt,
             MeetingRecordingStartOrigin.calendarAutoRecord,
             .scheduledMeetingPrompt,
             .joinAndRecord,
         ] {
-            #expect(unattended.signalLossResponse == .autoStopAfterWarning)
+            #expect(sourceBacked.signalLossResponse == .autoStopSilently)
         }
     }
 
@@ -257,6 +273,47 @@ struct MeetingAutoStopPolicyTests {
         #expect(!shouldStopWhileVisible)
         #expect(!shouldStopBeforeGrace)
         #expect(shouldStopAfterGrace)
+    }
+
+    @Test("tracker tolerates the transient Teams signal gap seen in the 9:29 meeting")
+    func trackerToleratesTransientTeamsSignalGap() {
+        var tracker = MeetingAutoStopTracker()
+        tracker.arm(source: MeetingAutoStopSource(candidate: teamsCandidate()))
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let shouldStopWhileVisible = tracker.observe(
+            candidate: teamsCandidate(),
+            now: now,
+            gracePeriod: MeetingAutoStopPolicy.signalLossGracePeriod
+        )
+        let shouldStopDuringGap = tracker.observe(
+            candidate: nil,
+            now: now.addingTimeInterval(30),
+            gracePeriod: MeetingAutoStopPolicy.signalLossGracePeriod
+        )
+
+        let replacement = MeetingCandidate(
+            id: "app:com.microsoft.teams2:session:1800000031",
+            platform: .teams,
+            appName: "Teams",
+            url: nil,
+            evidence: [.audioInputProcess, .dedicatedApp],
+            startedAt: now.addingTimeInterval(31),
+            meetingTitle: nil,
+            sourceBundleID: "com.microsoft.teams2",
+            sourcePID: 4321,
+            suppressionID: "app:com.microsoft.teams2:session:1800000031"
+        )
+        let shouldStopAfterReplacement = tracker.observe(
+            candidate: replacement,
+            now: now.addingTimeInterval(31),
+            gracePeriod: MeetingAutoStopPolicy.signalLossGracePeriod
+        )
+
+        #expect(!shouldStopWhileVisible)
+        #expect(!shouldStopDuringGap)
+        #expect(!shouldStopAfterReplacement)
+        #expect(tracker.lastSeenAt == now.addingTimeInterval(31))
     }
 
     @Test("tracker refines URL source before disappearing")

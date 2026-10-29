@@ -25,7 +25,7 @@ struct BackendOptionTests {
 
     @Test("backend field is one of the known backends")
     func knownBackends() {
-        let known: Set<String> = ["fluidaudio", "whisper", "qwen", "nemotron35", "cohere", "indicasr", "sensevoice", "gemma4-litert"]
+        let known: Set<String> = ["fluidaudio", "whisper", "qwen", "qwen-api", "elevenlabs", "nemotron35", "cohere", "indicasr", "sensevoice", "gemma4-litert"]
         for option in BackendOption.all {
             #expect(known.contains(option.backend), "Unknown backend: \(option.backend)")
         }
@@ -68,6 +68,8 @@ struct BackendOptionTests {
         #expect(BackendOption.all.contains(.whisperMedium))
         #expect(BackendOption.all.contains(.whisperLargeTurbo))
         #expect(BackendOption.all.contains(.qwen3Asr))
+        #expect(BackendOption.all.contains(.qwen3Asr17B))
+        #expect(BackendOption.all.contains(.elevenLabsScribe))
         #expect(BackendOption.all.contains(.cohereTranscribe))
         #expect(BackendOption.all.contains(.indicASR))
         #expect(BackendOption.all.contains(.senseVoiceSmall))
@@ -791,6 +793,9 @@ struct AppConfigTests {
     func jsonRoundTrip() throws {
         var config = AppConfig()
         config.openAIAPIKey = "sk-test-key-123"
+        config.elevenLabsAPIKey = "xi-test-key"
+        config.qwenASRAPIURL = "https://asr.example.com/v1/audio/transcriptions"
+        config.qwenASRAPIKey = "qwen-test-key"
         config.userName = "Test User"
         config.hasCompletedOnboarding = true
         config.onboardingUseCase = OnboardingUseCase.dictationAndMeetings.rawValue
@@ -872,6 +877,9 @@ struct AppConfigTests {
         let decoded = try JSONDecoder().decode(AppConfig.self, from: data)
 
         #expect(decoded.openAIAPIKey == "sk-test-key-123")
+        #expect(decoded.elevenLabsAPIKey == "xi-test-key")
+        #expect(decoded.qwenASRAPIURL == "https://asr.example.com/v1/audio/transcriptions")
+        #expect(decoded.qwenASRAPIKey == "qwen-test-key")
         #expect(decoded.userName == "Test User")
         #expect(decoded.hasCompletedOnboarding == true)
         #expect(decoded.resolvedOnboardingUseCase == .dictationAndMeetings)
