@@ -1938,7 +1938,7 @@ struct SettingsView: View {
 
     private func presentOpenPanel(_ panel: NSOpenPanel, onPick: @escaping (URL) -> Void) {
         NSApp.activate()
-        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+        if let window = SheetParent.current() {
             panel.beginSheetModal(for: window) { response in
                 guard response == .OK, let url = panel.url else { return }
                 onPick(url)

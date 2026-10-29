@@ -183,7 +183,7 @@ struct MeetingExporter {
 
     private static func presentSavePanel(_ panel: NSSavePanel, onSave: @escaping (URL) -> Void) {
         NSApp.activate()
-        if let window = NSApp.keyWindow {
+        if let window = SheetParent.current() {
             panel.beginSheetModal(for: window) { response in
                 guard response == .OK, let url = panel.url else { return }
                 onSave(url)

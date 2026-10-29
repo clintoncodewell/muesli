@@ -64,3 +64,37 @@ struct KeyablePanelTests {
         #expect(FocusKit.ignoredForIdle(NSWindow()) == false)
     }
 }
+
+// A save/open sheet must never attach to the borderless indicator: the helper skips windows that
+// `FocusKit.ignoredForIdle` rejects and falls through to the next suitable window, else nil (`panel.begin`).
+@MainActor
+@Suite("SheetParentTests")
+struct SheetParentTests {
+    private func shownWindow() -> NSWindow {
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 80, height: 60),
+                         styleMask: [.titled], backing: .buffered, defer: false)
+        w.isReleasedWhenClosed = false
+        w.orderFrontRegardless()
+        return w
+    }
+
+    @Test("a hidden window is not a sheet parent")
+    func hiddenWindowIsSkipped() {
+        let w = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
+        w.isReleasedWhenClosed = false
+        #expect(SheetParent.pick(from: [w]) == nil)
+        #expect(SheetParent.pick(from: [nil]) == nil)
+    }
+
+    @Test("an ignored window is skipped in favour of the next suitable one")
+    func ignoredWindowIsSkipped() {
+        let indicator = shownWindow()
+        let content = shownWindow()
+        defer { indicator.close(); content.close(); FocusKit.ignoredForIdle = { _ in false } }
+        FocusKit.ignoredForIdle = { $0 === indicator }
+        #expect(SheetParent.pick(from: [indicator, content]) === content)
+        #expect(SheetParent.pick(from: [indicator]) == nil)
+        FocusKit.ignoredForIdle = { _ in false }
+        #expect(SheetParent.pick(from: [indicator, content]) === indicator)
+    }
+}

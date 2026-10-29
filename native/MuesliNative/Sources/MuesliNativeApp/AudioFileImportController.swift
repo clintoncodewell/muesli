@@ -42,7 +42,7 @@ enum AudioFileImportController {
                 panel.canCreateDirectories = false
 
                 NSApp.activate()
-                if let window = NSApp.keyWindow {
+                if let window = SheetParent.current() {
                     panel.beginSheetModal(for: window) { response in
                         continuation.resume(
                             returning: response == .OK ? panel.url : nil
