@@ -1,0 +1,23 @@
+native/MuesliNative/Sources/MuesliNativeApp/AppDelegate.swift
+  s_c58c2aad845f52::t_ded25f7b77b841 17-22
+native/MuesliNative/Sources/MuesliNativeApp/KeyablePanel.swift
+  s_c58c2aad845f52::t_979c1cc323eacd 27-35,56,61,110,121-126
+native/MuesliNative/Tests/MuesliTests/KeyablePanelTests.swift
+  s_c58c2aad845f52::t_e0b0e055ab03b2 58-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ebc855edd9a43774088782ca7af733c5f58d933a",
+  "prompts": {},
+  "sessions": {
+    "s_c58c2aad845f52": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8992d941-115b-42b8-b048-88a01220ca97",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "clintoncodewell <clinton@advisewell.co>"
+    }
+  }
+}
