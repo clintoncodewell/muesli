@@ -14,7 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installStandardEditMenu()
-        MuesliFocus.install()
+        FocusKit.log = { NSLog("Muesli: %@", $0) }
+        FocusKit.install()
+        FocusKit.installEditKeyMonitor()
+        // The always-visible dictation indicator can become key but never holds the keyboard for the user,
+        // so it must not stop FocusKit's hand-back or keyDown net when a window or panel closes.
+        FocusKit.ignoredForIdle = { $0 is InteractiveFloatingPanel }
 
         let runtimeTelemetry = TelemetryRuntimeConfiguration.current()
         let telemetryConfig = TelemetryDeck.Config(appID: runtimeTelemetry.sdkAppID)

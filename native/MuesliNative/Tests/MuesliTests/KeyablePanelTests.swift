@@ -55,4 +55,12 @@ struct KeyablePanelTests {
         #expect(sel("q", .command) == nil)
         #expect(sel("z", [.command, .control]) == nil)
     }
+
+    // The hook is how an always-visible indicator opts out of FocusKit's idle check; the default must
+    // not exempt any window.
+    @MainActor
+    @Test("ignoredForIdle defaults to false for a plain window")
+    func ignoredForIdleDefaultsToFalse() {
+        #expect(FocusKit.ignoredForIdle(NSWindow()) == false)
+    }
 }
